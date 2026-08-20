@@ -1,57 +1,69 @@
 import React, { useState } from 'react';
 
-const OlhoDeDeus = ({ supabaseAccessToken }) => {
+const OlhoDeDes = ({ supabaseAccessToken }) => {
   const [demanda, setDemanda] = useState('');
   const [resposta, setResposta] = useState(null);
   const [loading, setLoading] = useState(false);
 
   const executarConselho = async () => {
-    if (!demanda) return alert("Digite uma demanda para o Conselho.");
+    if (!demanda) return alert("Digite uma demanda.");
     setLoading(true);
-    setResposta("O Conselho está deliberando...");
+    setResposta("Conectando ao Conselho...");
 
     try {
-      const response = await fetch('https://enhouyxocieotynybmcl.supabase.co/functions/v1/olho-de-deus-conselho', {
+      // Usando a função cohi-conselho que já está configurada no seu Supabase
+      const response = await fetch('https://enhouyxocieotynybmcl.supabase.co/functions/v1/cohi-conselho', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${supabaseAccessToken}`,
+          'Authorization': `Bearer ${supabaseAccessToken || 'token_teste'}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ demanda }),
       });
 
-      const data = await response.json();
-      setResposta(data.decisao || "Parecer gerado com sucesso.");
+      const textData = await response.text();
+      let data;
+      try {
+        data = JSON.parse(textData);
+      } catch {
+        data = { error: textData || "Erro desconhecido no servidor" };
+      }
+
+      if (!response.ok) {
+        setResposta(`Erro do Servidor (${response.status}): ${data.error || data.message || textData}`);
+      } else {
+        setResposta(JSON.stringify(data, null, 2));
+      }
     } catch (error) {
-      setResposta("Erro na comunicação com o Conselho: " + error.message);
+      setResposta("Falha de rede (Failed to fetch). Verifique se a URL da Edge Function está correta ou se há bloqueio de CORS: " + error.message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div style={{ padding: '20px', background: '#0F0F12', color: '#D4AF37' }}>
+    <div style={{ padding: '15px', background: '#0F0F12', color: '#D4AF37', minHeight: '100vh', fontFamily: 'sans-serif' }}>
       <h2>Olho de Deus — Conselho de IA</h2>
       <textarea 
         value={demanda} 
         onChange={(e) => setDemanda(e.target.value)}
         placeholder="Digite sua pauta executiva..."
-        style={{ width: '100%', height: '100px', background: '#18181C', color: '#FFF' }}
+        style={{ width: '100%', height: '100px', background: '#18181C', color: '#FFF', padding: '10px', borderRadius: '5px' }}
       />
       <button 
         onClick={executarConselho} 
         disabled={loading}
-        style={{ marginTop: '10px', padding: '10px 20px', background: '#0D5C3A', color: '#FFF', border: 'none' }}
+        style={{ marginTop: '10px', width: '100%', padding: '12px', background: '#0D5C3A', color: '#FFF', border: 'none', fontWeight: 'bold', borderRadius: '5px' }}
       >
         {loading ? "Processando..." : "Consultar Conselho"}
       </button>
 
-      <div style={{ marginTop: '20px', padding: '15px', border: '1px solid #2E2E38' }}>
-        <h3>Parecer:</h3>
-        <p>{resposta}</p>
+      <div style={{ marginTop: '20px', padding: '12px', background: '#18181C', border: '1px solid #2E2E38', borderRadius: '5px', wordBreak: 'break-all' }}>
+        <h3 style={{ fontSize: '14px', color: '#D4AF37', marginTop: 0 }}>Retorno:</h3>
+        <pre style={{ whiteSpace: 'pre-wrap', fontSize: '12px', color: '#FFF' }}>{resposta || "Aguardando envio..."}</pre>
       </div>
     </div>
   );
 };
 
-export default OlhoDeDeus;
+export default OlhoDeDes;
