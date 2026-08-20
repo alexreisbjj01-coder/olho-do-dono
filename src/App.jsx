@@ -32,6 +32,7 @@ export default function App() {
           'Content-Type': 'application/json',
           'apikey': SUPABASE_ANON_KEY,
           'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'x-client-info': 'supabase-js/2.0.0'
         },
         body: JSON.stringify({ demanda }),
       });
@@ -47,7 +48,7 @@ export default function App() {
       if (!response.ok) {
         setRespostaConselho(`Erro (${response.status}): ${data.error || data.message || textData}`);
       } else {
-        setRespostaConselho(data.decisao || JSON.stringify(data, null, 2));
+        setRespostaConselho(data.decisao || data.resposta || JSON.stringify(data, null, 2));
       }
     } catch (error) {
       setRespostaConselho("Falha de rede: " + error.message);
