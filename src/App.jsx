@@ -6,10 +6,13 @@ const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 const cores = {
-  fundo: '#0A1220',
-  card: '#0F1B2D',
-  borda: '#232B36',
-  destaque: '#B08159',
+  fundo: '#050b14',
+  card: '#0a1220',
+  borda: '#00d8ff44',
+  destaque: '#00d8ff',
+  texto: '#e5e7eb',
+  subtexto: '#9ca3af',
+  inputBg: '#080f1e',
 };
 
 export default function App() {
@@ -21,16 +24,18 @@ export default function App() {
       setSession(data.session);
       setCarregandoSessao(false);
     });
+
     const { data: listener } = supabase.auth.onAuthStateChange((_event, novaSessao) => {
       setSession(novaSessao);
     });
+
     return () => listener.subscription.unsubscribe();
   }, []);
 
   if (carregandoSessao) {
     return (
-      <div style={estiloTela}>
-        <p style={{ color: '#9ca3af' }}>Carregando...</p>
+      <div style={estiloTelaCentralizada}>
+        <p style={{ color: cores.destaque, fontFamily: 'monospace' }}>[ CARREGANDO SISTEMA... ]</p>
       </div>
     );
   }
@@ -38,7 +43,40 @@ export default function App() {
   return session ? <ConselhoIA session={session} /> : <TelaLogin />;
 }
 
-const estiloTela = { padding: '20px', background: cores.fundo, color: '#fff', minHeight: '100vh', fontFamily: 'sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center' };
+const estiloTelaCentralizada = {
+  padding: '20px',
+  background: cores.fundo,
+  color: cores.texto,
+  minHeight: '100vh',
+  fontFamily: 'sans-serif',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+};
+
+const estiloInput = {
+  width: '100%',
+  padding: '12px',
+  background: cores.inputBg,
+  color: '#fff',
+  border: `1px solid ${cores.borda}`,
+  borderRadius: '6px',
+  marginBottom: '12px',
+  boxSizing: 'border-box',
+  outline: 'none',
+};
+
+const estiloBotao = {
+  width: '100%',
+  padding: '12px',
+  background: cores.destaque,
+  color: '#050b14',
+  fontWeight: 'bold',
+  border: 'none',
+  borderRadius: '6px',
+  cursor: 'pointer',
+  boxShadow: '0 0 10px rgba(0, 216, 255, 0.3)',
+};
 
 function TelaLogin() {
   const [modo, setModo] = useState('entrar');
@@ -63,7 +101,7 @@ function TelaLogin() {
         if (error) {
           setMensagem(`Erro: ${error.message}`);
         } else {
-          setMensagem('Conta criada! Se a confirmação por email estiver ativa, verifique sua caixa de entrada antes de entrar.');
+          setMensagem('Conta criada! Verifique seu e-mail para confirmação se necessário.');
         }
       }
     } catch (e) {
@@ -74,27 +112,27 @@ function TelaLogin() {
   };
 
   return (
-    <div style={estiloTela}>
-      <div style={{ maxWidth: '400px', width: '100%', background: cores.card, padding: '24px', borderRadius: '8px', border: `1px solid ${cores.borda}` }}>
-        <h2 style={{ color: cores.destaque, marginBottom: '4px' }}>O Olho do Dono</h2>
-        <p style={{ fontSize: '13px', color: '#9ca3af', marginBottom: '20px' }}>
-          {modo === 'entrar' ? 'Entre com sua conta para acessar o painel.' : 'Crie sua conta de acesso.'}
+    <div style={estiloTelaCentralizada}>
+      <div style={{ maxWidth: '400px', width: '100%', background: cores.card, padding: '28px', borderRadius: '10px', border: `1px solid ${cores.borda}`, boxShadow: '0 0 20px rgba(0,216,255,0.1)' }}>
+        <h2 style={{ color: cores.destaque, marginBottom: '4px', letterSpacing: '1px' }}>O OLHO DO DONO</h2>
+        <p style={{ fontSize: '13px', color: cores.subtexto, marginBottom: '20px' }}>
+          {modo === 'entrar' ? 'Acesso restrito ao painel executivo.' : 'Cadastro de novo operador.'}
         </p>
 
         <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="seu@email.com" style={estiloInput} />
         <input type="password" value={senha} onChange={(e) => setSenha(e.target.value)} placeholder="Senha" style={estiloInput} />
 
         <button onClick={enviar} disabled={carregando} style={estiloBotao}>
-          {carregando ? 'Aguarde...' : modo === 'entrar' ? 'Entrar' : 'Criar conta'}
+          {carregando ? 'PROCESSANDO...' : modo === 'entrar' ? 'ENTRAR' : 'CRIAR CONTA'}
         </button>
 
         {mensagem && (
-          <p style={{ fontSize: '13px', color: '#e5e7eb', marginTop: '12px', whiteSpace: 'pre-wrap' }}>{mensagem}</p>
+          <p style={{ fontSize: '13px', color: cores.texto, marginTop: '12px', whiteSpace: 'pre-wrap' }}>{mensagem}</p>
         )}
 
         <button
           onClick={() => { setModo(modo === 'entrar' ? 'criar' : 'entrar'); setMensagem(''); }}
-          style={{ background: 'none', border: 'none', color: cores.destaque, fontSize: '13px', marginTop: '16px', cursor: 'pointer', textDecoration: 'underline' }}
+          style={{ background: 'none', border: 'none', color: cores.destaque, fontSize: '13px', marginTop: '16px', cursor: 'pointer', textDecoration: 'underline', width: '100%' }}
         >
           {modo === 'entrar' ? 'Não tem conta? Criar uma' : 'Já tem conta? Entrar'}
         </button>
@@ -102,28 +140,6 @@ function TelaLogin() {
     </div>
   );
 }
-
-const estiloInput = {
-  width: '100%',
-  padding: '12px',
-  background: '#0b0f19',
-  color: '#fff',
-  border: `1px solid ${cores.borda}`,
-  borderRadius: '6px',
-  marginBottom: '12px',
-  boxSizing: 'border-box',
-};
-
-const estiloBotao = {
-  width: '100%',
-  padding: '12px',
-  background: cores.destaque,
-  color: '#0b0f19',
-  fontWeight: 'bold',
-  border: 'none',
-  borderRadius: '6px',
-  cursor: 'pointer',
-};
 
 function ConselhoIA({ session }) {
   const [empresas, setEmpresas] = useState([]);
@@ -153,7 +169,7 @@ function ConselhoIA({ session }) {
     }
 
     setCarregando(true);
-    setParecer('Consultando os conselheiros executivos...');
+    setParecer('Consultando conselheiros executivos...');
 
     try {
       const response = await fetch('https://enhouyxocieotynybmcl.supabase.co/functions/v1/cohi-conselho', {
@@ -180,41 +196,47 @@ function ConselhoIA({ session }) {
   };
 
   return (
-    <div style={{ padding: '20px', background: cores.fundo, color: '#fff', minHeight: '100vh', fontFamily: 'sans-serif' }}>
-      <div style={{ maxWidth: '600px', margin: '0 auto', background: cores.card, padding: '20px', borderRadius: '8px', border: `1px solid ${cores.borda}` }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-          <h2 style={{ color: cores.destaque, margin: 0 }}>Deliberação do Conselho (6 Conselheiros)</h2>
-          <button onClick={sair} style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: '13px', cursor: 'pointer', textDecoration: 'underline' }}>
-            Sair
+    <div style={{ padding: '20px', background: cores.fundo, color: cores.texto, minHeight: '100vh', fontFamily: 'sans-serif' }}>
+      <div style={{ maxWidth: '650px', margin: '0 auto', background: cores.card, padding: '24px', borderRadius: '10px', border: `1px solid ${cores.borda}`, boxShadow: '0 0 20px rgba(0,216,255,0.05)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+          <h2 style={{ color: cores.destaque, margin: 0, fontSize: '20px', letterSpacing: '0.5px' }}>
+            CONSELHO DE DELIBERAÇÃO (6 IA)
+          </h2>
+          <button onClick={sair} style={{ background: 'none', border: '1px solid ' + cores.borda, color: cores.subtexto, padding: '4px 12px', borderRadius: '4px', fontSize: '12px', cursor: 'pointer' }}>
+            SAIR
           </button>
         </div>
 
-        <p style={{ fontSize: '14px', color: '#9ca3af', marginBottom: '15px' }}>
-          Envie sua pauta estratégica para análise executiva.
+        <p style={{ fontSize: '13px', color: cores.subtexto, marginBottom: '15px' }}>
+          Selecione a empresa e envie sua pauta para análise executiva automatizada.
         </p>
 
+        <label style={{ fontSize: '12px', color: cores.destaque, display: 'block', marginBottom: '4px' }}>EMPRESA:</label>
         <select value={empresaId} onChange={(e) => setEmpresaId(e.target.value)} style={{ ...estiloInput, marginBottom: '15px' }}>
-          {empresas.length === 0 && <option value="">Nenhuma empresa disponível</option>}
+          {empresas.length === 0 && <option value="">Nenhuma empresa cadastrada</option>}
           {empresas.map((c) => (
             <option key={c.id} value={c.id}>{c.name}</option>
           ))}
         </select>
 
+        <label style={{ fontSize: '12px', color: cores.destaque, display: 'block', marginBottom: '4px' }}>PAUTA ESTRATÉGICA:</label>
         <textarea
           value={pauta}
           onChange={(e) => setPauta(e.target.value)}
-          placeholder="Digite sua pauta estratégica aqui..."
-          rows={4}
+          placeholder="Descreva a situação ou decisão a ser tomada..."
+          rows={5}
           style={{ ...estiloInput, resize: 'vertical' }}
         />
 
         <button onClick={consultarConselho} disabled={carregando} style={{ ...estiloBotao, marginBottom: '20px' }}>
-          {carregando ? 'Analisando...' : 'Consultar Conselho de IA'}
+          {carregando ? 'ANALISANDO PAUTA...' : 'CONSULTAR CONSELHO'}
         </button>
 
-        <div style={{ background: '#0b0f19', padding: '15px', borderRadius: '6px', border: `1px solid ${cores.borda}` }}>
-          <strong style={{ color: cores.destaque, display: 'block', marginBottom: '8px' }}>PARECER EXECUTIVO:</strong>
-          <div style={{ whiteSpace: 'pre-wrap', fontSize: '14px', color: '#e5e7eb' }}>
+        <div style={{ background: cores.inputBg, padding: '16px', borderRadius: '8px', border: `1px solid ${cores.borda}` }}>
+          <strong style={{ color: cores.destaque, display: 'block', marginBottom: '8px', fontSize: '13px', letterSpacing: '0.5px' }}>
+            PARECER EXECUTIVO
+          </strong>
+          <div style={{ whiteSpace: 'pre-wrap', fontSize: '14px', color: cores.texto, lineHeight: '1.5' }}>
             {parecer || 'Aguardando envio de pauta para deliberação...'}
           </div>
         </div>
