@@ -1,12 +1,156 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createClient } from '@supabase/supabase-js';
 
-export default function ConselhoIA() {
+const supabaseUrl = 'https://enhouyxocieotynybmcl.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuaG91eXhvY2llb3R5bnlibWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcwMjY0NTYsImV4cCI6MjEwMjYwMjQ1Nn0.ypoEii9bdHmqpXdBoh87Xu2WAp8rSEpMtTWZyJk6bdM';
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+const cores = {
+  fundo: '#0A1220',
+  card: '#0F1B2D',
+  borda: '#232B36',
+  destaque: '#B08159',
+};
+
+export default function App() {
+  const [session, setSession] = useState(null);
+  const [carregandoSessao, setCarregandoSessao] = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setCarregandoSessao(false);
+    });
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, novaSessao) => {
+      setSession(novaSessao);
+    });
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  if (carregandoSessao) {
+    return (
+      <div style={estiloTela}>
+        <p style={{ color: '#9ca3af' }}>Carregando...</p>
+      </div>
+    );
+  }
+
+  return session ? <ConselhoIA session={session} /> : <TelaLogin />;
+}
+
+const estiloTela = { padding: '20px', background: cores.fundo, color: '#fff', minHeight: '100vh', fontFamily: 'sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center' };
+
+function TelaLogin() {
+  const [modo, setModo] = useState('entrar');
+  const [email, setEmail] = useState('');
+  const [senha, setSenha] = useState('');
+  const [mensagem, setMensagem] = useState('');
+  const [carregando, setCarregando] = useState(false);
+
+  const enviar = async () => {
+    if (!email.trim() || !senha.trim()) {
+      setMensagem('Preencha email e senha.');
+      return;
+    }
+    setCarregando(true);
+    setMensagem('');
+    try {
+      if (modo === 'entrar') {
+        const { error } = await supabase.auth.signInWithPassword({ email, password: senha });
+        if (error) setMensagem(`Erro: ${error.message}`);
+      } else {
+        const { error } = await supabase.auth.signUp({ email, password: senha });
+        if (error) {
+          setMensagem(`Erro: ${error.message}`);
+        } else {
+          setMensagem('Conta criada! Se a confirmação por email estiver ativa, verifique sua caixa de entrada antes de entrar.');
+        }
+      }
+    } catch (e) {
+      setMensagem('Erro de conexão ao autenticar.');
+    } finally {
+      setCarregando(false);
+    }
+  };
+
+  return (
+    <div style={estiloTela}>
+      <div style={{ maxWidth: '400px', width: '100%', background: cores.card, padding: '24px', borderRadius: '8px', border: `1px solid ${cores.borda}` }}>
+        <h2 style={{ color: cores.destaque, marginBottom: '4px' }}>O Olho do Dono</h2>
+        <p style={{ fontSize: '13px', color: '#9ca3af', marginBottom: '20px' }}>
+          {modo === 'entrar' ? 'Entre com sua conta para acessar o painel.' : 'Crie sua conta de acesso.'}
+        </p>
+
+        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="seu@email.com" style={estiloInput} />
+        <input type="password" value={senha} onChange={(e) => setSenha(e.target.value)} placeholder="Senha" style={estiloInput} />
+
+        <button onClick={enviar} disabled={carregando} style={estiloBotao}>
+          {carregando ? 'Aguarde...' : modo === 'entrar' ? 'Entrar' : 'Criar conta'}
+        </button>
+
+        {mensagem && (
+          <p style={{ fontSize: '13px', color: '#e5e7eb', marginTop: '12px', whiteSpace: 'pre-wrap' }}>{mensagem}</p>
+        )}
+
+        <button
+          onClick={() => { setModo(modo === 'entrar' ? 'criar' : 'entrar'); setMensagem(''); }}
+          style={{ background: 'none', border: 'none', color: cores.destaque, fontSize: '13px', marginTop: '16px', cursor: 'pointer', textDecoration: 'underline' }}
+        >
+          {modo === 'entrar' ? 'Não tem conta? Criar uma' : 'Já tem conta? Entrar'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const estiloInput = {
+  width: '100%',
+  padding: '12px',
+  background: '#0b0f19',
+  color: '#fff',
+  border: `1px solid ${cores.borda}`,
+  borderRadius: '6px',
+  marginBottom: '12px',
+  boxSizing: 'border-box',
+};
+
+const estiloBotao = {
+  width: '100%',
+  padding: '12px',
+  background: cores.destaque,
+  color: '#0b0f19',
+  fontWeight: 'bold',
+  border: 'none',
+  borderRadius: '6px',
+  cursor: 'pointer',
+};
+
+function ConselhoIA({ session }) {
+  const [empresas, setEmpresas] = useState([]);
+  const [empresaId, setEmpresaId] = useState('');
   const [pauta, setPauta] = useState('');
   const [parecer, setParecer] = useState('');
   const [carregando, setCarregando] = useState(false);
 
+  useEffect(() => {
+    supabase.from('companies').select('id, name').then(({ data, error }) => {
+      if (!error && data) {
+        setEmpresas(data);
+        if (data.length > 0) setEmpresaId(data[0].id);
+      }
+    });
+  }, []);
+
+  const sair = async () => {
+    await supabase.auth.signOut();
+  };
+
   const consultarConselho = async () => {
     if (!pauta.trim()) return;
+    if (!empresaId) {
+      setParecer('Selecione uma empresa antes de consultar.');
+      return;
+    }
 
     setCarregando(true);
     setParecer('Consultando os conselheiros executivos...');
@@ -16,48 +160,60 @@ export default function ConselhoIA() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuaG91eXhvY2llb3R5bnlibWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcwMjY0NTYsImV4cCI6MjEwMjYwMjQ1Nn0.ypoEii9bdHmqpXdBoh87Xu2WAp8rSEpMtTWZyJk6bdM'
+          'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ pauta })
+        body: JSON.stringify({ pauta, company_id: empresaId }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        setParecer(data.parecer || data.resposta || JSON.stringify(data));
+        setParecer(data.decisao_recomendada || data.status || JSON.stringify(data, null, 2));
       } else {
-        setParecer(`[Erro do Servidor]: ${data.error || 'Erro ao processar pauta.'}`);
+        setParecer(`[Erro do Servidor]: ${data.mensagem || data.error || 'Erro ao processar pauta.'}`);
       }
     } catch (error) {
-      setParecer(`[Erro de Conexão]: Não foi possível conectar à Edge Function.`);
+      setParecer('[Erro de Conexão]: Não foi possível conectar à Edge Function.');
     } finally {
       setCarregando(false);
     }
   };
 
   return (
-    <div style={{ padding: '20px', background: '#0b0f19', color: '#fff', minHeight: '100vh', fontFamily: 'sans-serif' }}>
-      <div style={{ maxWidth: '600px', margin: '0 auto', background: '#121824', padding: '20px', borderRadius: '8px', border: '1px solid #2a3447' }}>
-        <h2 style={{ color: '#d4af37', marginBottom: '10px' }}>Deliberação do Conselho (6 Conselheiros)</h2>
+    <div style={{ padding: '20px', background: cores.fundo, color: '#fff', minHeight: '100vh', fontFamily: 'sans-serif' }}>
+      <div style={{ maxWidth: '600px', margin: '0 auto', background: cores.card, padding: '20px', borderRadius: '8px', border: `1px solid ${cores.borda}` }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+          <h2 style={{ color: cores.destaque, margin: 0 }}>Deliberação do Conselho (6 Conselheiros)</h2>
+          <button onClick={sair} style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: '13px', cursor: 'pointer', textDecoration: 'underline' }}>
+            Sair
+          </button>
+        </div>
+
         <p style={{ fontSize: '14px', color: '#9ca3af', marginBottom: '15px' }}>
           Envie sua pauta estratégica para análise executiva.
         </p>
+
+        <select value={empresaId} onChange={(e) => setEmpresaId(e.target.value)} style={{ ...estiloInput, marginBottom: '15px' }}>
+          {empresas.length === 0 && <option value="">Nenhuma empresa disponível</option>}
+          {empresas.map((c) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
+
         <textarea
           value={pauta}
           onChange={(e) => setPauta(e.target.value)}
           placeholder="Digite sua pauta estratégica aqui..."
           rows={4}
-          style={{ width: '100%', padding: '12px', background: '#0b0f19', color: '#fff', border: '1px solid #2a3447', borderRadius: '6px', marginBottom: '15px', resize: 'vertical' }}
+          style={{ ...estiloInput, resize: 'vertical' }}
         />
-        <button
-          onClick={consultarConselho}
-          disabled={carregando}
-          style={{ width: '100%', padding: '12px', background: '#c29b61', color: '#0b0f19', fontWeight: 'bold', border: 'none', borderRadius: '6px', cursor: 'pointer', marginBottom: '20px' }}
-        >
+
+        <button onClick={consultarConselho} disabled={carregando} style={{ ...estiloBotao, marginBottom: '20px' }}>
           {carregando ? 'Analisando...' : 'Consultar Conselho de IA'}
         </button>
-        <div style={{ background: '#0b0f19', padding: '15px', borderRadius: '6px', border: '1px solid #2a3447' }}>
-          <strong style={{ color: '#d4af37', display: 'block', marginBottom: '8px' }}>PARECER EXECUTIVO:</strong>
+
+        <div style={{ background: '#0b0f19', padding: '15px', borderRadius: '6px', border: `1px solid ${cores.borda}` }}>
+          <strong style={{ color: cores.destaque, display: 'block', marginBottom: '8px' }}>PARECER EXECUTIVO:</strong>
           <div style={{ whiteSpace: 'pre-wrap', fontSize: '14px', color: '#e5e7eb' }}>
             {parecer || 'Aguardando envio de pauta para deliberação...'}
           </div>
