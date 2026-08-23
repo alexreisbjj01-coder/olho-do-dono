@@ -1,12 +1,2896 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>O Olho do Dono</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>O Olho do Dono — Sistema de Comando Central</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      fontFamily: {
+        orbitron: ['Orbitron', 'monospace'],
+        inter: ['Inter', 'sans-serif'],
+      },
+      colors: {
+        jarvis: {
+          dark: '#0a0e1a',
+          panel: '#0f1729',
+          border: '#1e3a5f',
+          cyan: '#00d4ff',
+          blue: '#0066cc',
+          accent: '#00f0ff',
+          danger: '#ff3366',
+          success: '#00ff88',
+          warning: '#ffaa00',
+          text: '#e0e8f0',
+          muted: '#6b7a8f'
+        }
+      },
+      animation: {
+        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'scan': 'scan 4s linear infinite',
+        'float': 'float 6s ease-in-out infinite',
+      },
+      keyframes: {
+        scan: {
+          '0%': { transform: 'translateY(-100%)' },
+          '100%': { transform: 'translateY(100%)' },
+        },
+        float: {
+          '0%, 100%': { transform: 'translateY(0px)' },
+          '50%': { transform: 'translateY(-10px)' },
+        }
+      }
+    }
+  }
+}
+</script>
+<style>
+body { font-family: 'Inter', sans-serif; background: #0a0e1a; color: #e0e8f0; overflow-x: hidden; }
+.font-orbitron { font-family: 'Orbitron', monospace; }
+
+/* Particle Canvas Background */
+#particle-canvas {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  z-index: 0; pointer-events: none;
+}
+
+/* Glassmorphism panels */
+.glass-panel {
+  background: rgba(15, 23, 41, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 212, 255, 0.15);
+  box-shadow: 0 0 20px rgba(0, 212, 255, 0.05), inset 0 1px 0 rgba(255,255,255,0.05);
+}
+
+.glass-panel:hover {
+  border-color: rgba(0, 212, 255, 0.3);
+  box-shadow: 0 0 30px rgba(0, 212, 255, 0.1), inset 0 1px 0 rgba(255,255,255,0.08);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #0a0e1a; }
+::-webkit-scrollbar-thumb { background: #1e3a5f; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #00d4ff; }
+
+/* Inputs */
+input, textarea, select {
+  background: rgba(10, 14, 26, 0.8);
+  border: 1px solid #1e3a5f;
+  color: #e0e8f0;
+  transition: all 0.3s ease;
+}
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: #00d4ff;
+  box-shadow: 0 0 10px rgba(0, 212, 255, 0.2);
+}
+
+/* Buttons */
+.btn-jarvis {
+  background: linear-gradient(135deg, rgba(0,102,204,0.2), rgba(0,212,255,0.1));
+  border: 1px solid #00d4ff;
+  color: #00d4ff;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+.btn-jarvis:hover {
+  background: linear-gradient(135deg, rgba(0,102,204,0.4), rgba(0,212,255,0.2));
+  box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+  transform: translateY(-1px);
+}
+.btn-jarvis::before {
+  content: ''; position: absolute; top: 0; left: -100%;
+  width: 100%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(0,212,255,0.2), transparent);
+  transition: left 0.5s;
+}
+.btn-jarvis:hover::before { left: 100%; }
+
+.btn-success {
+  background: linear-gradient(135deg, rgba(0,255,136,0.2), rgba(0,255,136,0.05));
+  border: 1px solid #00ff88;
+  color: #00ff88;
+}
+.btn-success:hover {
+  background: linear-gradient(135deg, rgba(0,255,136,0.4), rgba(0,255,136,0.1));
+  box-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, rgba(255,51,102,0.2), rgba(255,51,102,0.05));
+  border: 1px solid #ff3366;
+  color: #ff3366;
+}
+
+/* Navigation */
+.nav-item {
+  position: relative;
+  transition: all 0.3s ease;
+}
+.nav-item.active {
+  background: linear-gradient(90deg, rgba(0,212,255,0.1), transparent);
+  border-left: 3px solid #00d4ff;
+  color: #00d4ff;
+}
+.nav-item:hover:not(.active) {
+  background: rgba(0,212,255,0.05);
+  color: #00d4ff;
+}
+
+/* Status indicators */
+.status-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  display: inline-block; animation: pulse-slow 2s infinite;
+}
+.status-online { background: #00ff88; box-shadow: 0 0 8px #00ff88; }
+.status-warning { background: #ffaa00; box-shadow: 0 0 8px #ffaa00; }
+.status-danger { background: #ff3366; box-shadow: 0 0 8px #ff3366; }
+
+/* Card hover effect */
+.metric-card {
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+.metric-card::after {
+  content: ''; position: absolute; bottom: 0; left: 0;
+  width: 0; height: 2px; background: #00d4ff;
+  transition: width 0.3s ease;
+}
+.metric-card:hover::after { width: 100%; }
+.metric-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+}
+
+/* Loading */
+.jarvis-loader {
+  width: 40px; height: 40px;
+  border: 2px solid rgba(0,212,255,0.2);
+  border-top-color: #00d4ff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Typing indicator */
+.typing-dot {
+  width: 6px; height: 6px; background: #00d4ff;
+  border-radius: 50%; display: inline-block;
+  animation: typing 1.4s infinite ease-in-out both;
+}
+.typing-dot:nth-child(1) { animation-delay: -0.32s; }
+.typing-dot:nth-child(2) { animation-delay: -0.16s; }
+@keyframes typing {
+  0%, 80%, 100% { transform: scale(0); }
+  40% { transform: scale(1); }
+}
+
+/* Video preview */
+.video-preview {
+  background: linear-gradient(135deg, #1a1a2e, #16213e);
+  position: relative;
+  overflow: hidden;
+}
+.video-preview::before {
+  content: ''; position: absolute; top: -50%; left: -50%;
+  width: 200%; height: 200%;
+  background: repeating-linear-gradient(
+    0deg, transparent, transparent 2px, rgba(0,212,255,0.03) 2px, rgba(0,212,255,0.03) 4px
+  );
+  animation: scan 8s linear infinite;
+}
+
+/* Toast */
+.toast-container {
+  position: fixed; top: 20px; right: 20px; z-index: 9999;
+}
+.toast {
+  background: rgba(15, 23, 41, 0.95);
+  border: 1px solid #00d4ff;
+  backdrop-filter: blur(10px);
+  padding: 12px 20px;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  animation: slideIn 0.3s ease;
+  max-width: 350px;
+}
+@keyframes slideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+/* Grid lines background */
+.grid-bg {
+  background-image: 
+    linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+  background-size: 50px 50px;
+}
+
+/* Hide sections by default */
+.section { display: none; }
+.section.active { display: block; }
+
+/* Table styles */
+.data-table {
+  width: 100%; border-collapse: collapse;
+}
+.data-table th {
+  background: rgba(0,102,204,0.1);
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6b7a8f;
+  border-bottom: 1px solid #1e3a5f;
+}
+.data-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(30,58,95,0.3);
+  font-size: 0.875rem;
+}
+.data-table tr:hover td {
+  background: rgba(0,212,255,0.03);
+}
+
+/* Modal */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(5px);
+  z-index: 100;
+  display: flex; align-items: center; justify-content: center;
+}
+.modal-content {
+  background: #0f1729;
+  border: 1px solid #1e3a5f;
+  border-radius: 12px;
+  max-width: 600px; width: 90%;
+  max-height: 90vh; overflow-y: auto;
+  box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+}
+
+/* Progress bar */
+.progress-bar {
+  height: 4px; background: rgba(30,58,95,0.5);
+  border-radius: 2px; overflow: hidden;
+}
+.progress-bar-fill {
+  height: 100%; background: linear-gradient(90deg, #0066cc, #00d4ff);
+  border-radius: 2px;
+  transition: width 0.5s ease;
+}
+</style>
+</head>
+<body class="min-h-screen grid-bg">
+<canvas id="particle-canvas"></canvas>
+
+<!-- Toast Container -->
+<div id="toast-container" class="toast-container"></div>
+
+<!-- Login Screen -->
+<div id="login-screen" class="fixed inset-0 z-50 flex items-center justify-center">
+  <div class="absolute inset-0 bg-gradient-to-br from-jarvis-dark via-[#0a1525] to-jarvis-dark"></div>
+  <div class="relative z-10 w-full max-w-md p-8">
+    <div class="text-center mb-8">
+      <div class="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-jarvis-cyan to-jarvis-blue flex items-center justify-center shadow-lg shadow-jarvis-cyan/20">
+        <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+      </div>
+      <h1 class="font-orbitron text-3xl font-bold text-white tracking-wider">O OLHO DO DONO</h1>
+      <p class="text-jarvis-muted mt-2 text-sm">Sistema de Comando Central</p>
+    </div>
+
+    <div class="glass-panel rounded-xl p-6 space-y-4">
+      <div>
+        <label class="block text-xs font-medium text-jarvis-muted uppercase tracking-wider mb-1">Email</label>
+        <input type="email" id="login-email" class="w-full px-4 py-3 rounded-lg" placeholder="don@olhododono.com" value="alexreisbjj01@gmail.com">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-jarvis-muted uppercase tracking-wider mb-1">Senha</label>
+        <input type="password" id="login-password" class="w-full px-4 py-3 rounded-lg" placeholder="••••••••">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-jarvis-muted uppercase tracking-wider mb-1">Chave Gemini (opcional)</label>
+        <input type="password" id="gemini-key" class="w-full px-4 py-3 rounded-lg text-xs" placeholder="AIza... (deixe em branco para modo simulação)">
+        <p class="text-xs text-jarvis-muted mt-1">Modo simulação ativo sem chave. Com chave, IA real do Gemini.</p>
+      </div>
+      <button onclick="app.login()" class="btn-jarvis w-full py-3 rounded-lg font-orbitron font-semibold tracking-wider">
+        INICIAR SISTEMA
+      </button>
+      <div class="text-center">
+        <button onclick="app.demoLogin()" class="text-xs text-jarvis-cyan hover:underline">Entrar em modo demonstração</button>
+      </div>
+    </div>
+
+    <div class="mt-6 text-center text-xs text-jarvis-muted">
+      <p>v2.0 — Zero Inventory Protocol</p>
+      <p class="mt-1">Gemini: <span class="text-jarvis-success">gemini-flash-latest</span></p>
+    </div>
+  </div>
+</div>
+
+<!-- Main App -->
+<div id="main-app" class="hidden relative z-10 min-h-screen flex">
+  <!-- Sidebar -->
+  <aside class="w-64 glass-panel border-r border-jarvis-border flex flex-col fixed h-full">
+    <div class="p-4 border-b border-jarvis-border">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-jarvis-cyan to-jarvis-blue flex items-center justify-center">
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+        </div>
+        <div>
+          <h2 class="font-orbitron text-sm font-bold text-white">OLHO DO DONO</h2>
+          <p class="text-xs text-jarvis-muted">v2.0 Rebuild</p>
+        </div>
+      </div>
+    </div>
+
+    <nav class="flex-1 py-4 space-y-1 overflow-y-auto">
+      <button onclick="app.navigate('dashboard')" id="nav-dashboard" class="nav-item w-full text-left px-4 py-3 flex items-center gap-3 text-sm">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+        Visão Geral
+      </button>
+      <button onclick="app.navigate('empresas')" id="nav-empresas" class="nav-item w-full text-left px-4 py-3 flex items-center gap-3 text-sm">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+        Empresas
+      </button>
+      <button onclick="app.navigate('financeiro')" id="nav-financeiro" class="nav-item w-full text-left px-4 py-3 flex items-center gap-3 text-sm">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        Financeiro
+      </button>
+      <button onclick="app.navigate('rh')" id="nav-rh" class="nav-item w-full text-left px-4 py-3 flex items-center gap-3 text-sm">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+        RH
+      </button>
+      <button onclick="app.navigate('investimentos')" id="nav-investimentos" class="nav-item w-full text-left px-4 py-3 flex items-center gap-3 text-sm">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+        Investimentos
+      </button>
+      <button onclick="app.navigate('marketing')" id="nav-marketing" class="nav-item w-full text-left px-4 py-3 flex items-center gap-3 text-sm">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+        Mídia & Vídeo
+      </button>
+      <button onclick="app.navigate('afiliados')" id="nav-afiliados" class="nav-item w-full text-left px-4 py-3 flex items-center gap-3 text-sm">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+        Afiliados
+      </button>
+      <button onclick="app.navigate('conselho')" id="nav-conselho" class="nav-item w-full text-left px-4 py-3 flex items-center gap-3 text-sm">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+        Conselho de IA
+      </button>
+      <button onclick="app.navigate('copiloto')" id="nav-copiloto" class="nav-item w-full text-left px-4 py-3 flex items-center gap-3 text-sm">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
+        Copiloto
+      </button>
+      <button onclick="app.navigate('traducao')" id="nav-traducao" class="nav-item w-full text-left px-4 py-3 flex items-center gap-3 text-sm">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"/></svg>
+        Tradução
+      </button>
+      <button onclick="app.navigate('config')" id="nav-config" class="nav-item w-full text-left px-4 py-3 flex items-center gap-3 text-sm">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        Configurações
+      </button>
+    </nav>
+
+    <div class="p-4 border-t border-jarvis-border">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-jarvis-success to-jarvis-blue flex items-center justify-center text-xs font-bold">AD</div>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-medium truncate" id="user-name">Admin</p>
+          <p class="text-xs text-jarvis-muted flex items-center gap-1">
+            <span class="status-dot status-online"></span>
+            Online
+          </p>
+        </div>
+        <button onclick="app.logout()" class="text-jarvis-muted hover:text-jarvis-danger transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="flex-1 ml-64 p-6 overflow-y-auto min-h-screen">
+
+    <!-- DASHBOARD -->
+    <div id="section-dashboard" class="section active">
+      <div class="mb-6">
+        <h1 class="font-orbitron text-2xl font-bold text-white mb-1">VISÃO GERAL</h1>
+        <p class="text-jarvis-muted text-sm">Painel de comando central — todas as frentes em tempo real</p>
+      </div>
+
+      <!-- KPI Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div class="glass-panel rounded-xl p-5 metric-card">
+          <div class="flex justify-between items-start mb-3">
+            <div>
+              <p class="text-xs text-jarvis-muted uppercase tracking-wider">Receita Líquida (Mês)</p>
+              <p class="text-2xl font-orbitron font-bold text-jarvis-success mt-1" id="dash-receita">R$ 0,00</p>
+            </div>
+            <div class="w-10 h-10 rounded-lg bg-jarvis-success/10 flex items-center justify-center">
+              <svg class="w-5 h-5 text-jarvis-success" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 text-xs">
+            <span class="text-jarvis-success flex items-center gap-1">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+              +12%
+            </span>
+            <span class="text-jarvis-muted">vs mês anterior</span>
+          </div>
+        </div>
+
+        <div class="glass-panel rounded-xl p-5 metric-card">
+          <div class="flex justify-between items-start mb-3">
+            <div>
+              <p class="text-xs text-jarvis-muted uppercase tracking-wider">Despesas (Mês)</p>
+              <p class="text-2xl font-orbitron font-bold text-jarvis-danger mt-1" id="dash-despesa">R$ 0,00</p>
+            </div>
+            <div class="w-10 h-10 rounded-lg bg-jarvis-danger/10 flex items-center justify-center">
+              <svg class="w-5 h-5 text-jarvis-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"/></svg>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 text-xs">
+            <span class="text-jarvis-warning flex items-center gap-1">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"/></svg>
+              -3%
+            </span>
+            <span class="text-jarvis-muted">vs mês anterior</span>
+          </div>
+        </div>
+
+        <div class="glass-panel rounded-xl p-5 metric-card">
+          <div class="flex justify-between items-start mb-3">
+            <div>
+              <p class="text-xs text-jarvis-muted uppercase tracking-wider">Saldo Consolidado</p>
+              <p class="text-2xl font-orbitron font-bold text-jarvis-cyan mt-1" id="dash-saldo">R$ 0,00</p>
+            </div>
+            <div class="w-10 h-10 rounded-lg bg-jarvis-cyan/10 flex items-center justify-center">
+              <svg class="w-5 h-5 text-jarvis-cyan" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+            </div>
+          </div>
+          <div class="progress-bar mt-2">
+            <div class="progress-bar-fill" id="dash-progress" style="width: 0%"></div>
+          </div>
+          <p class="text-xs text-jarvis-muted mt-1" id="dash-meta-text">0% da meta mensal (R$ 500.000)</p>
+        </div>
+
+        <div class="glass-panel rounded-xl p-5 metric-card">
+          <div class="flex justify-between items-start mb-3">
+            <div>
+              <p class="text-xs text-jarvis-muted uppercase tracking-wider">Sinal de Investimento</p>
+              <p class="text-lg font-orbitron font-bold text-jarvis-warning mt-1" id="dash-sinal">AGUARDANDO</p>
+            </div>
+            <div class="w-10 h-10 rounded-lg bg-jarvis-warning/10 flex items-center justify-center">
+              <svg class="w-5 h-5 text-jarvis-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            </div>
+          </div>
+          <p class="text-xs text-jarvis-muted" id="dash-sinal-text">Acumule R$ 5.000 para liberar tráfego pago</p>
+        </div>
+      </div>
+
+      <!-- Charts Row -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+        <div class="lg:col-span-2 glass-panel rounded-xl p-5">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="font-orbitron text-sm font-semibold text-white">FLUXO DE CAIXA — ÚLTIMOS 30 DIAS</h3>
+            <div class="flex gap-2">
+              <span class="flex items-center gap-1 text-xs text-jarvis-success"><span class="w-2 h-2 rounded-full bg-jarvis-success"></span>Entradas</span>
+              <span class="flex items-center gap-1 text-xs text-jarvis-danger"><span class="w-2 h-2 rounded-full bg-jarvis-danger"></span>Saídas</span>
+            </div>
+          </div>
+          <canvas id="chart-fluxo" height="200"></canvas>
+        </div>
+
+        <div class="glass-panel rounded-xl p-5">
+          <h3 class="font-orbitron text-sm font-semibold text-white mb-4">DISTRIBUIÇÃO POR EMPRESA</h3>
+          <canvas id="chart-pizza" height="200"></canvas>
+        </div>
+      </div>
+
+      <!-- Alerts & Quick Actions -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="glass-panel rounded-xl p-5">
+          <h3 class="font-orbitron text-sm font-semibold text-white mb-3">ALERTAS DO SISTEMA</h3>
+          <div id="dash-alerts" class="space-y-2">
+            <!-- Preenchido via JS -->
+          </div>
+        </div>
+
+        <div class="glass-panel rounded-xl p-5">
+          <h3 class="font-orbitron text-sm font-semibold text-white mb-3">AÇÕES RÁPIDAS</h3>
+          <div class="grid grid-cols-2 gap-3">
+            <button onclick="app.navigate('financeiro'); app.openModal('lancamento')" class="btn-jarvis py-3 rounded-lg text-sm font-medium">
+              + Lançamento
+            </button>
+            <button onclick="app.navigate('marketing'); app.openModal('roteiro')" class="btn-jarvis py-3 rounded-lg text-sm font-medium">
+              Gerar Roteiro
+            </button>
+            <button onclick="app.navigate('conselho')" class="btn-jarvis py-3 rounded-lg text-sm font-medium">
+              Consultar Conselho
+            </button>
+            <button onclick="app.navigate('copiloto')" class="btn-jarvis py-3 rounded-lg text-sm font-medium">
+              Falar com Copiloto
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- EMPRESAS -->
+    <div id="section-empresas" class="section">
+      <div class="mb-6 flex justify-between items-center">
+        <div>
+          <h1 class="font-orbitron text-2xl font-bold text-white mb-1">EMPRESAS</h1>
+          <p class="text-jarvis-muted text-sm">Gestão societária e estrutura do grupo</p>
+        </div>
+        <button onclick="app.openModal('empresa')" class="btn-success px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          Nova Empresa
+        </button>
+      </div>
+
+      <!-- Estrutura 3 Camadas -->
+      <div class="glass-panel rounded-xl p-5 mb-6">
+        <h3 class="font-orbitron text-sm font-semibold text-white mb-4">ESTRUTURA SOCIETÁRIA — 3 CAMADAS</h3>
+        <div class="flex flex-col md:flex-row gap-4 items-stretch">
+          <div class="flex-1 glass-panel rounded-lg p-4 border-l-4 border-jarvis-cyan">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="w-6 h-6 rounded bg-jarvis-cyan/20 text-jarvis-cyan flex items-center justify-center text-xs font-bold">1</span>
+              <h4 class="font-semibold text-sm">Frentes Operacionais</h4>
+            </div>
+            <p class="text-xs text-jarvis-muted">Receita ativa, operações diárias</p>
+            <div class="mt-2 text-2xl font-orbitron font-bold text-jarvis-cyan" id="count-frentes">0</div>
+          </div>
+          <div class="flex items-center justify-center">
+            <svg class="w-6 h-6 text-jarvis-muted hidden md:block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
+            <svg class="w-6 h-6 text-jarvis-muted md:hidden rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
+          </div>
+          <div class="flex-1 glass-panel rounded-lg p-4 border-l-4 border-jarvis-blue">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="w-6 h-6 rounded bg-jarvis-blue/20 text-jarvis-blue flex items-center justify-center text-xs font-bold">2</span>
+              <h4 class="font-semibold text-sm">Holding Patrimonial</h4>
+            </div>
+            <p class="text-xs text-jarvis-muted">Passagem, liquidez, empréstimos internos</p>
+            <div class="mt-2 text-2xl font-orbitron font-bold text-jarvis-blue" id="count-holding">0</div>
+          </div>
+          <div class="flex items-center justify-center">
+            <svg class="w-6 h-6 text-jarvis-muted hidden md:block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
+            <svg class="w-6 h-6 text-jarvis-muted md:hidden rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
+          </div>
+          <div class="flex-1 glass-panel rounded-lg p-4 border-l-4 border-jarvis-success">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="w-6 h-6 rounded bg-jarvis-success/20 text-jarvis-success flex items-center justify-center text-xs font-bold">3</span>
+              <h4 class="font-semibold text-sm">Fundação</h4>
+            </div>
+            <p class="text-xs text-jarvis-muted">Patrimônio definitivo, blindagem jurídica</p>
+            <div class="mt-2 text-2xl font-orbitron font-bold text-jarvis-success" id="count-fundacao">0</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lista de Empresas -->
+      <div class="glass-panel rounded-xl overflow-hidden">
+        <div class="p-4 border-b border-jarvis-border flex justify-between items-center">
+          <h3 class="font-orbitron text-sm font-semibold text-white">TODAS AS EMPRESAS</h3>
+          <input type="text" id="search-empresas" placeholder="Buscar..." class="px-3 py-1.5 rounded-lg text-sm w-64" oninput="app.filterEmpresas()">
+        </div>
+        <div class="overflow-x-auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>CNPJ</th>
+                <th>Razão Social</th>
+                <th>Camada</th>
+                <th>Tipo Jurídico</th>
+                <th>Status</th>
+                <th>Responsável</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="table-empresas">
+              <!-- Preenchido via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- FINANCEIRO -->
+    <div id="section-financeiro" class="section">
+      <div class="mb-6 flex justify-between items-center">
+        <div>
+          <h1 class="font-orbitron text-2xl font-bold text-white mb-1">FINANCEIRO</h1>
+          <p class="text-jarvis-muted text-sm">Lançamentos, fluxo de caixa e saldo por empresa</p>
+        </div>
+        <button onclick="app.openModal('lancamento')" class="btn-success px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          Novo Lançamento
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+        <div class="glass-panel rounded-xl p-5">
+          <p class="text-xs text-jarvis-muted uppercase tracking-wider">Entradas (Mês)</p>
+          <p class="text-2xl font-orbitron font-bold text-jarvis-success mt-1" id="fin-entradas">R$ 0,00</p>
+        </div>
+        <div class="glass-panel rounded-xl p-5">
+          <p class="text-xs text-jarvis-muted uppercase tracking-wider">Saídas (Mês)</p>
+          <p class="text-2xl font-orbitron font-bold text-jarvis-danger mt-1" id="fin-saidas">R$ 0,00</p>
+        </div>
+        <div class="glass-panel rounded-xl p-5">
+          <p class="text-xs text-jarvis-muted uppercase tracking-wider">Saldo</p>
+          <p class="text-2xl font-orbitron font-bold text-jarvis-cyan mt-1" id="fin-saldo">R$ 0,00</p>
+        </div>
+      </div>
+
+      <div class="glass-panel rounded-xl overflow-hidden">
+        <div class="p-4 border-b border-jarvis-border flex flex-wrap gap-3 items-center">
+          <h3 class="font-orbitron text-sm font-semibold text-white">LANÇAMENTOS</h3>
+          <select id="fin-filter-empresa" class="px-3 py-1.5 rounded-lg text-sm" onchange="app.filterLancamentos()">
+            <option value="">Todas as empresas</option>
+          </select>
+          <select id="fin-filter-tipo" class="px-3 py-1.5 rounded-lg text-sm" onchange="app.filterLancamentos()">
+            <option value="">Todos os tipos</option>
+            <option value="entrada">Entrada</option>
+            <option value="saida">Saída</option>
+          </select>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Empresa</th>
+                <th>Descrição</th>
+                <th>Categoria</th>
+                <th>Tipo</th>
+                <th>Valor</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="table-lancamentos">
+              <!-- Preenchido via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- RH -->
+    <div id="section-rh" class="section">
+      <div class="mb-6 flex justify-between items-center">
+        <div>
+          <h1 class="font-orbitron text-2xl font-bold text-white mb-1">RECURSOS HUMANOS</h1>
+          <p class="text-jarvis-muted text-sm">Colaboradores, contratos e departamentos</p>
+        </div>
+        <button onclick="app.openModal('colaborador')" class="btn-success px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          Novo Colaborador
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div class="glass-panel rounded-xl p-4 text-center">
+          <p class="text-3xl font-orbitron font-bold text-jarvis-cyan" id="rh-total">0</p>
+          <p class="text-xs text-jarvis-muted uppercase mt-1">Total</p>
+        </div>
+        <div class="glass-panel rounded-xl p-4 text-center">
+          <p class="text-3xl font-orbitron font-bold text-jarvis-success" id="rh-clt">0</p>
+          <p class="text-xs text-jarvis-muted uppercase mt-1">CLT</p>
+        </div>
+        <div class="glass-panel rounded-xl p-4 text-center">
+          <p class="text-3xl font-orbitron font-bold text-jarvis-warning" id="rh-pj">0</p>
+          <p class="text-xs text-jarvis-muted uppercase mt-1">PJ</p>
+        </div>
+        <div class="glass-panel rounded-xl p-4 text-center">
+          <p class="text-3xl font-orbitron font-bold text-jarvis-danger" id="rh-custo">R$ 0</p>
+          <p class="text-xs text-jarvis-muted uppercase mt-1">Custo Mensal</p>
+        </div>
+      </div>
+
+      <div class="glass-panel rounded-xl overflow-hidden">
+        <div class="p-4 border-b border-jarvis-border">
+          <h3 class="font-orbitron text-sm font-semibold text-white">COLABORADORES</h3>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>Cargo</th>
+                <th>Departamento</th>
+                <th>Contrato</th>
+                <th>Salário</th>
+                <th>Admissão</th>
+                <th>Status</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="table-rh">
+              <!-- Preenchido via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- INVESTIMENTOS -->
+    <div id="section-investimentos" class="section">
+      <div class="mb-6 flex justify-between items-center">
+        <div>
+          <h1 class="font-orbitron text-2xl font-bold text-white mb-1">INVESTIMENTOS</h1>
+          <p class="text-jarvis-muted text-sm">Ativos por jurisdição e moeda</p>
+        </div>
+        <button onclick="app.openModal('investimento')" class="btn-success px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          Novo Ativo
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div class="glass-panel rounded-xl p-5">
+          <p class="text-xs text-jarvis-muted uppercase tracking-wider">Patrimônio Total</p>
+          <p class="text-2xl font-orbitron font-bold text-jarvis-cyan mt-1" id="inv-total">R$ 0,00</p>
+        </div>
+        <div class="glass-panel rounded-xl p-5">
+          <p class="text-xs text-jarvis-muted uppercase tracking-wider">Variação (24h)</p>
+          <p class="text-2xl font-orbitron font-bold text-jarvis-success mt-1" id="inv-var">+0,00%</p>
+        </div>
+        <div class="glass-panel rounded-xl p-5">
+          <p class="text-xs text-jarvis-muted uppercase tracking-wider">Ativos</p>
+          <p class="text-2xl font-orbitron font-bold text-white mt-1" id="inv-count">0</p>
+        </div>
+      </div>
+
+      <div class="glass-panel rounded-xl overflow-hidden">
+        <div class="p-4 border-b border-jarvis-border">
+          <h3 class="font-orbitron text-sm font-semibold text-white">CARTEIRA</h3>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Ativo</th>
+                <th>Tipo</th>
+                <th>Jurisdição</th>
+                <th>Moeda</th>
+                <th>Quantidade</th>
+                <th>Valor Unit.</th>
+                <th>Total</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="table-investimentos">
+              <!-- Preenchido via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- MARKETING & VIDEO -->
+    <div id="section-marketing" class="section">
+      <div class="mb-6 flex justify-between items-center">
+        <div>
+          <h1 class="font-orbitron text-2xl font-bold text-white mb-1">MÍDIA & VÍDEO</h1>
+          <p class="text-jarvis-muted text-sm">Roteiros, fila de conteúdo e geração de vídeo</p>
+        </div>
+        <button onclick="app.openModal('roteiro')" class="btn-success px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+          Novo Roteiro
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+        <div class="glass-panel rounded-xl p-5">
+          <p class="text-xs text-jarvis-muted uppercase tracking-wider">Conteúdo na Fila</p>
+          <p class="text-2xl font-orbitron font-bold text-jarvis-cyan mt-1" id="mkt-fila">0</p>
+        </div>
+        <div class="glass-panel rounded-xl p-5">
+          <p class="text-xs text-jarvis-muted uppercase tracking-wider">Publicados</p>
+          <p class="text-2xl font-orbitron font-bold text-jarvis-success mt-1" id="mkt-publicados">0</p>
+        </div>
+        <div class="glass-panel rounded-xl p-5">
+          <p class="text-xs text-jarvis-muted uppercase tracking-wider">Vídeos Gerados</p>
+          <p class="text-2xl font-orbitron font-bold text-jarvis-warning mt-1" id="mkt-videos">0</p>
+        </div>
+      </div>
+
+      <!-- Fila de Conteúdo -->
+      <div class="glass-panel rounded-xl overflow-hidden mb-6">
+        <div class="p-4 border-b border-jarvis-border flex justify-between items-center">
+          <h3 class="font-orbitron text-sm font-semibold text-white">FILA DE CONTEÚDO</h3>
+          <div class="flex gap-2">
+            <button onclick="app.filterMarketing('todos')" class="px-3 py-1 rounded text-xs bg-jarvis-cyan/10 text-jarvis-cyan border border-jarvis-cyan/30">Todos</button>
+            <button onclick="app.filterMarketing('pronto')" class="px-3 py-1 rounded text-xs text-jarvis-muted border border-jarvis-border hover:text-jarvis-cyan">Prontos</button>
+            <button onclick="app.filterMarketing('aguardando')" class="px-3 py-1 rounded text-xs text-jarvis-muted border border-jarvis-border hover:text-jarvis-cyan">Aguardando</button>
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Título</th>
+                <th>Plataforma</th>
+                <th>Produto/Afiliado</th>
+                <th>Status</th>
+                <th>Criado em</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="table-marketing">
+              <!-- Preenchido via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Gerador de Vídeo Local -->
+      <div class="glass-panel rounded-xl p-5">
+        <h3 class="font-orbitron text-sm font-semibold text-white mb-4">GERADOR DE VÍDEO LOCAL (SEM CUSTO)</h3>
+        <p class="text-xs text-jarvis-muted mb-4">Gera vídeo vertical 1080x1920 com texto animado sobre degradê. Sem narração (requer serviço pago).</p>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="space-y-3">
+            <div>
+              <label class="block text-xs text-jarvis-muted uppercase mb-1">Texto Principal</label>
+              <textarea id="video-texto" rows="3" class="w-full px-3 py-2 rounded-lg text-sm" placeholder="Digite o texto do vídeo..."></textarea>
+            </div>
+            <div>
+              <label class="block text-xs text-jarvis-muted uppercase mb-1">CTA (ex: Link na bio)</label>
+              <input type="text" id="video-cta" class="w-full px-3 py-2 rounded-lg text-sm" value="Link na bio 🔗">
+            </div>
+            <div class="flex gap-2">
+              <button onclick="app.gerarVideo()" class="btn-success px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                Gerar Vídeo MP4
+              </button>
+            </div>
+          </div>
+          <div class="video-preview rounded-lg flex items-center justify-center min-h-[300px]" id="video-preview-area">
+            <div class="text-center">
+              <svg class="w-12 h-12 text-jarvis-muted mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+              <p class="text-sm text-jarvis-muted">Preview do vídeo aparecerá aqui</p>
+            </div>
+          </div>
+        </div>
+        <div id="video-download-area" class="mt-4 hidden">
+          <a id="video-download-link" class="btn-jarvis px-4 py-2 rounded-lg text-sm inline-flex items-center gap-2" download="video-olho-do-dono.mp4">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            Baixar Vídeo MP4
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- AFILIADOS -->
+    <div id="section-afiliados" class="section">
+      <div class="mb-6 flex justify-between items-center">
+        <div>
+          <h1 class="font-orbitron text-2xl font-bold text-white mb-1">PROGRAMAS DE AFILIADO</h1>
+          <p class="text-jarvis-muted text-sm">Links, comissões e acompanhamento de produtos</p>
+        </div>
+        <button onclick="app.openModal('afiliado')" class="btn-success px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          Novo Produto
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div class="glass-panel rounded-xl p-4 text-center">
+          <p class="text-3xl font-orbitron font-bold text-jarvis-cyan" id="aff-total">0</p>
+          <p class="text-xs text-jarvis-muted uppercase mt-1">Produtos</p>
+        </div>
+        <div class="glass-panel rounded-xl p-4 text-center">
+          <p class="text-3xl font-orbitron font-bold text-jarvis-success" id="aff-hotmart">0</p>
+          <p class="text-xs text-jarvis-muted uppercase mt-1">Hotmart</p>
+        </div>
+        <div class="glass-panel rounded-xl p-4 text-center">
+          <p class="text-3xl font-orbitron font-bold text-jarvis-warning" id="aff-comissao">0%</p>
+          <p class="text-xs text-jarvis-muted uppercase mt-1">Comissão Média</p>
+        </div>
+        <div class="glass-panel rounded-xl p-4 text-center">
+          <p class="text-3xl font-orbitron font-bold text-white" id="aff-roteiros">0</p>
+          <p class="text-xs text-jarvis-muted uppercase mt-1">Roteiros Gerados</p>
+        </div>
+      </div>
+
+      <div class="glass-panel rounded-xl overflow-hidden">
+        <div class="p-4 border-b border-jarvis-border">
+          <h3 class="font-orbitron text-sm font-semibold text-white">PRODUTOS CADASTRADOS</h3>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Produto</th>
+                <th>Plataforma</th>
+                <th>Nicho</th>
+                <th>Comissão</th>
+                <th>Nota</th>
+                <th>Status</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="table-afiliados">
+              <!-- Preenchido via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONSELHO DE IA -->
+    <div id="section-conselho" class="section">
+      <div class="mb-6">
+        <h1 class="font-orbitron text-2xl font-bold text-white mb-1">CONSELHO DE IA</h1>
+        <p class="text-jarvis-muted text-sm">6 conselheiros + sintetizador deliberam sobre qualquer pauta</p>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+        <div class="lg:col-span-2 glass-panel rounded-xl p-5">
+          <h3 class="font-orbitron text-sm font-semibold text-white mb-3">NOVA PAUTA</h3>
+          <textarea id="conselho-pauta" rows="4" class="w-full px-4 py-3 rounded-lg mb-3" placeholder="Descreva a pauta para deliberação do conselho..."></textarea>
+          <div class="flex flex-wrap gap-2 mb-3">
+            <label class="flex items-center gap-2 text-xs text-jarvis-muted cursor-pointer">
+              <input type="checkbox" id="cons-rapido" class="rounded">
+              Modo consulta rápida (1 conselheiro)
+            </label>
+          </div>
+          <button onclick="app.consultarConselho()" id="btn-conselho" class="btn-jarvis px-6 py-2 rounded-lg text-sm font-medium flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+            Submeter ao Conselho
+          </button>
+        </div>
+
+        <div class="glass-panel rounded-xl p-5">
+          <h3 class="font-orbitron text-sm font-semibold text-white mb-3">CONSELHEIROS</h3>
+          <div class="space-y-3">
+            <div class="flex items-center gap-3 p-2 rounded-lg bg-jarvis-cyan/5 border border-jarvis-cyan/20">
+              <div class="w-8 h-8 rounded-full bg-jarvis-cyan/20 flex items-center justify-center text-jarvis-cyan font-bold text-xs">L</div>
+              <div><p class="text-sm font-medium">Lógica</p><p class="text-xs text-jarvis-muted">Análise racional</p></div>
+            </div>
+            <div class="flex items-center gap-3 p-2 rounded-lg bg-jarvis-blue/5 border border-jarvis-blue/20">
+              <div class="w-8 h-8 rounded-full bg-jarvis-blue/20 flex items-center justify-center text-jarvis-blue font-bold text-xs">E</div>
+              <div><p class="text-sm font-medium">Estratégia</p><p class="text-xs text-jarvis-muted">Planejamento</p></div>
+            </div>
+            <div class="flex items-center gap-3 p-2 rounded-lg bg-jarvis-success/5 border border-jarvis-success/20">
+              <div class="w-8 h-8 rounded-full bg-jarvis-success/20 flex items-center justify-center text-jarvis-success font-bold text-xs">F</div>
+              <div><p class="text-sm font-medium">Filosofia</p><p class="text-xs text-jarvis-muted">Princípios</p></div>
+            </div>
+            <div class="flex items-center gap-3 p-2 rounded-lg bg-jarvis-warning/5 border border-jarvis-warning/20">
+              <div class="w-8 h-8 rounded-full bg-jarvis-warning/20 flex items-center justify-center text-jarvis-warning font-bold text-xs">P</div>
+              <div><p class="text-sm font-medium">Primeiros Princípios</p><p class="text-xs text-jarvis-muted">Fundamentos</p></div>
+            </div>
+            <div class="flex items-center gap-3 p-2 rounded-lg bg-jarvis-danger/5 border border-jarvis-danger/20">
+              <div class="w-8 h-8 rounded-full bg-jarvis-danger/20 flex items-center justify-center text-jarvis-danger font-bold text-xs">É</div>
+              <div><p class="text-sm font-medium">Ética & Gov.</p><p class="text-xs text-jarvis-muted">Compliance</p></div>
+            </div>
+            <div class="flex items-center gap-3 p-2 rounded-lg bg-white/5 border border-white/20">
+              <div class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white font-bold text-xs">S</div>
+              <div><p class="text-sm font-medium">Sistêmico</p><p class="text-xs text-jarvis-muted">Visão holística</p></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Histórico de Pareceres -->
+      <div class="glass-panel rounded-xl overflow-hidden">
+        <div class="p-4 border-b border-jarvis-border">
+          <h3 class="font-orbitron text-sm font-semibold text-white">HISTÓRICO DE PARECERES</h3>
+        </div>
+        <div id="conselho-historico" class="divide-y divide-jarvis-border">
+          <!-- Preenchido via JS -->
+        </div>
+      </div>
+    </div>
+
+    <!-- COPILOTO -->
+    <div id="section-copiloto" class="section">
+      <div class="mb-6">
+        <h1 class="font-orbitron text-2xl font-bold text-white mb-1">COPILOTO</h1>
+        <p class="text-jarvis-muted text-sm">Assistente residente para suporte e dúvidas operacionais</p>
+      </div>
+
+      <div class="glass-panel rounded-xl flex flex-col" style="height: calc(100vh - 200px);">
+        <div class="p-4 border-b border-jarvis-border flex justify-between items-center">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-jarvis-cyan to-jarvis-blue flex items-center justify-center">
+              <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+            </div>
+            <div>
+              <p class="font-semibold text-sm">Copiloto IA</p>
+              <p class="text-xs text-jarvis-success flex items-center gap-1"><span class="status-dot status-online"></span>Online</p>
+            </div>
+          </div>
+          <button onclick="app.limparCopiloto()" class="text-xs text-jarvis-muted hover:text-jarvis-danger">Limpar conversa</button>
+        </div>
+
+        <div id="copiloto-messages" class="flex-1 overflow-y-auto p-4 space-y-4">
+          <div class="flex gap-3">
+            <div class="w-8 h-8 rounded-full bg-gradient-to-br from-jarvis-cyan to-jarvis-blue flex-shrink-0 flex items-center justify-center">
+              <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+            </div>
+            <div class="glass-panel rounded-lg rounded-tl-none p-3 max-w-[80%]">
+              <p class="text-sm">Olá, Dono. Sou seu Copiloto. Estou aqui para ajudar com qualquer dúvida operacional do sistema, análise de dados ou suporte às decisões. O que precisa?</p>
+              <p class="text-xs text-jarvis-muted mt-1">Copiloto • agora</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-4 border-t border-jarvis-border">
+          <div class="flex gap-2">
+            <input type="text" id="copiloto-input" class="flex-1 px-4 py-3 rounded-lg" placeholder="Digite sua mensagem..." onkeypress="if(event.key==='Enter')app.enviarCopiloto()">
+            <button onclick="app.enviarCopiloto()" class="btn-jarvis px-4 py-2 rounded-lg">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TRADUÇÃO -->
+    <div id="section-traducao" class="section">
+      <div class="mb-6">
+        <h1 class="font-orbitron text-2xl font-bold text-white mb-1">TRADUÇÃO</h1>
+        <p class="text-jarvis-muted text-sm">Detecção automática de idioma e tradução com histórico</p>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+        <div class="glass-panel rounded-xl p-5">
+          <div class="flex justify-between items-center mb-3">
+            <h3 class="font-orbitron text-sm font-semibold text-white">TEXTO ORIGEM</h3>
+            <span id="detected-lang" class="text-xs text-jarvis-cyan">Auto-detectar</span>
+          </div>
+          <textarea id="trad-source" rows="6" class="w-full px-4 py-3 rounded-lg text-sm" placeholder="Cole ou digite o texto para traduzir..."></textarea>
+          <div class="flex gap-2 mt-3">
+            <select id="trad-target" class="px-3 py-2 rounded-lg text-sm">
+              <option value="pt">Português</option>
+              <option value="en">Inglês</option>
+              <option value="es">Espanhol</option>
+              <option value="fr">Francês</option>
+              <option value="de">Alemão</option>
+              <option value="it">Italiano</option>
+              <option value="ja">Japonês</option>
+              <option value="zh">Chinês</option>
+            </select>
+            <button onclick="app.traduzir()" id="btn-traduzir" class="btn-jarvis px-4 py-2 rounded-lg text-sm font-medium">
+              Traduzir
+            </button>
+          </div>
+        </div>
+
+        <div class="glass-panel rounded-xl p-5">
+          <h3 class="font-orbitron text-sm font-semibold text-white mb-3">TRADUÇÃO</h3>
+          <textarea id="trad-result" rows="6" class="w-full px-4 py-3 rounded-lg text-sm bg-jarvis-dark/50" readonly placeholder="A tradução aparecerá aqui..."></textarea>
+          <div class="flex gap-2 mt-3">
+            <button onclick="app.copiarTraducao()" class="px-3 py-2 rounded-lg text-sm border border-jarvis-border hover:border-jarvis-cyan text-jarvis-muted hover:text-jarvis-cyan transition-colors">
+              Copiar
+            </button>
+            <button onclick="app.limparTraducao()" class="px-3 py-2 rounded-lg text-sm border border-jarvis-border hover:border-jarvis-danger text-jarvis-muted hover:text-jarvis-danger transition-colors">
+              Limpar
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="glass-panel rounded-xl overflow-hidden">
+        <div class="p-4 border-b border-jarvis-border">
+          <h3 class="font-orbitron text-sm font-semibold text-white">HISTÓRICO</h3>
+        </div>
+        <div id="trad-historico" class="divide-y divide-jarvis-border">
+          <!-- Preenchido via JS -->
+        </div>
+      </div>
+    </div>
+
+    <!-- CONFIGURAÇÕES -->
+    <div id="section-config" class="section">
+      <div class="mb-6">
+        <h1 class="font-orbitron text-2xl font-bold text-white mb-1">CONFIGURAÇÕES</h1>
+        <p class="text-jarvis-muted text-sm">Integrações, segurança e preferências do sistema</p>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="glass-panel rounded-xl p-5">
+          <h3 class="font-orbitron text-sm font-semibold text-white mb-4">INTEGRAÇÃO GEMINI</h3>
+          <div class="space-y-3">
+            <div>
+              <label class="block text-xs text-jarvis-muted uppercase mb-1">Chave API Gemini</label>
+              <input type="password" id="config-gemini-key" class="w-full px-3 py-2 rounded-lg text-sm" placeholder="AIza...">
+            </div>
+            <div>
+              <label class="block text-xs text-jarvis-muted uppercase mb-1">Modelo</label>
+              <input type="text" value="gemini-flash-latest" class="w-full px-3 py-2 rounded-lg text-sm bg-jarvis-dark/50" readonly>
+              <p class="text-xs text-jarvis-muted mt-1">Alias fixo — nunca versão específica</p>
+            </div>
+            <button onclick="app.salvarConfigGemini()" class="btn-jarvis px-4 py-2 rounded-lg text-sm">Salvar Configuração</button>
+          </div>
+        </div>
+
+        <div class="glass-panel rounded-xl p-5">
+          <h3 class="font-orbitron text-sm font-semibold text-white mb-4">SUPABASE (OPCIONAL)</h3>
+          <div class="space-y-3">
+            <div>
+              <label class="block text-xs text-jarvis-muted uppercase mb-1">URL do Projeto</label>
+              <input type="text" id="config-supabase-url" class="w-full px-3 py-2 rounded-lg text-sm" placeholder="https://xxxx.supabase.co">
+            </div>
+            <div>
+              <label class="block text-xs text-jarvis-muted uppercase mb-1">Anon Key</label>
+              <input type="password" id="config-supabase-key" class="w-full px-3 py-2 rounded-lg text-sm" placeholder="eyJ...">
+            </div>
+            <button onclick="app.salvarConfigSupabase()" class="btn-jarvis px-4 py-2 rounded-lg text-sm">Conectar Supabase</button>
+            <p class="text-xs text-jarvis-muted">Modo local ativo. Dados salvos no navegador.</p>
+          </div>
+        </div>
+
+        <div class="glass-panel rounded-xl p-5">
+          <h3 class="font-orbitron text-sm font-semibold text-white mb-4">SEGURANÇA</h3>
+          <div class="space-y-3">
+            <div class="flex items-center justify-between p-3 rounded-lg bg-jarvis-dark/50 border border-jarvis-border">
+              <div>
+                <p class="text-sm font-medium">"Olho de Deus" (Câmeras)</p>
+                <p class="text-xs text-jarvis-muted">Só sinaliza infração. Nunca pune sozinho.</p>
+              </div>
+              <span class="px-2 py-1 rounded text-xs bg-jarvis-success/10 text-jarvis-success border border-jarvis-success/30">Ativo</span>
+            </div>
+            <div class="flex items-center justify-between p-3 rounded-lg bg-jarvis-dark/50 border border-jarvis-border">
+              <div>
+                <p class="text-sm font-medium">Estrutura Societária</p>
+                <p class="text-xs text-jarvis-muted">Ferramenta de compliance. Nunca evasão.</p>
+              </div>
+              <span class="px-2 py-1 rounded text-xs bg-jarvis-success/10 text-jarvis-success border border-jarvis-success/30">Ativo</span>
+            </div>
+            <div class="flex items-center justify-between p-3 rounded-lg bg-jarvis-dark/50 border border-jarvis-border">
+              <div>
+                <p class="text-sm font-medium">Zero Inventory Protocol</p>
+                <p class="text-xs text-jarvis-muted">Zero custo operacional padrão.</p>
+              </div>
+              <span class="px-2 py-1 rounded text-xs bg-jarvis-success/10 text-jarvis-success border border-jarvis-success/30">Ativo</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="glass-panel rounded-xl p-5">
+          <h3 class="font-orbitron text-sm font-semibold text-white mb-4">DADOS LOCAIS</h3>
+          <div class="space-y-3">
+            <button onclick="app.exportarDados()" class="btn-jarvis w-full py-2 rounded-lg text-sm">Exportar Todos os Dados (JSON)</button>
+            <button onclick="app.importarDados()" class="btn-jarvis w-full py-2 rounded-lg text-sm">Importar Dados (JSON)</button>
+            <input type="file" id="import-file" class="hidden" accept=".json" onchange="app.processarImportacao(event)">
+            <button onclick="app.limparTodosDados()" class="btn-danger w-full py-2 rounded-lg text-sm">Limpar Todos os Dados</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- MODAIS -->
+<div id="modal-overlay" class="modal-overlay hidden" onclick="app.closeModal(event)">
+  <div class="modal-content" onclick="event.stopPropagation()">
+    <div class="p-4 border-b border-jarvis-border flex justify-between items-center">
+      <h3 class="font-orbitron text-sm font-semibold text-white" id="modal-title">Título</h3>
+      <button onclick="app.closeModal()" class="text-jarvis-muted hover:text-white">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="p-4" id="modal-body">
+      <!-- Conteúdo dinâmico -->
+    </div>
+  </div>
+</div>
+
+<script>
+
+// ============================================
+// O OLHO DO DONO — Sistema de Comando Central
+// v2.0 Rebuild — Zero Inventory Protocol
+// ============================================
+
+const app = {
+  // Estado
+  user: null,
+  currentSection: 'dashboard',
+  geminiKey: localStorage.getItem('gemini_key') || '',
+  supabaseUrl: localStorage.getItem('supabase_url') || '',
+  supabaseKey: localStorage.getItem('supabase_key') || '',
+
+  // Dados mockados iniciais
+  data: {
+    empresas: [],
+    lancamentos: [],
+    rh: [],
+    investimentos: [],
+    marketing: [],
+    afiliados: [],
+    conselho: [],
+    copiloto: [],
+    traducoes: []
+  },
+
+  // Inicialização
+  init() {
+    this.initParticles();
+    this.loadData();
+    this.initMockData();
+    this.updateDashboard();
+    this.renderAll();
+
+    // Verificar sessão
+    const savedUser = localStorage.getItem('olho_user');
+    if (savedUser) {
+      this.user = JSON.parse(savedUser);
+      this.showApp();
+    }
+
+    // Configurar inputs
+    document.getElementById('config-gemini-key').value = this.geminiKey;
+    document.getElementById('gemini-key').value = this.geminiKey;
+    document.getElementById('config-supabase-url').value = this.supabaseUrl;
+    document.getElementById('config-supabase-key').value = this.supabaseKey;
+  },
+
+  // Persistência
+  saveData() {
+    localStorage.setItem('olho_data', JSON.stringify(this.data));
+  },
+
+  loadData() {
+    const saved = localStorage.getItem('olho_data');
+    if (saved) {
+      this.data = JSON.parse(saved);
+    }
+  },
+
+  // Dados iniciais de demonstração
+  initMockData() {
+    if (this.data.empresas.length > 0) return;
+
+    this.data.empresas = [
+      { id: 1, cnpj: '12.345.678/0001-90', razao: 'Frente Digital LTDA', camada: 'frente', tipo: 'LTDA', status: 'ativa', responsavel: 'Alex Reis', jurisdicao: 'BR', moeda: 'BRL' },
+      { id: 2, cnpj: '23.456.789/0001-01', razao: 'Frente Serviços ME', camada: 'frente', tipo: 'ME', status: 'ativa', responsavel: 'Alex Reis', jurisdicao: 'BR', moeda: 'BRL' },
+      { id: 3, cnpj: '34.567.890/0001-12', razao: 'Holding Patrimonial S.A.', camada: 'holding', tipo: 'S.A.', status: 'ativa', responsavel: 'Alex Reis', jurisdicao: 'BR', moeda: 'BRL' },
+      { id: 4, cnpj: '45.678.901/0001-23', razao: 'Fundação Olho do Dono', camada: 'fundacao', tipo: 'Fundação', status: 'ativa', responsavel: 'Alex Reis', jurisdicao: 'BR', moeda: 'BRL' }
+    ];
+
+    this.data.lancamentos = [
+      { id: 1, empresa_id: 1, descricao: 'Venda afiliado Hotmart', categoria: 'Afiliados', tipo: 'entrada', valor: 1270.50, data: '2026-08-20' },
+      { id: 2, empresa_id: 1, descricao: 'Venda afiliado Hotmart', categoria: 'Afiliados', tipo: 'entrada', valor: 890.00, data: '2026-08-18' },
+      { id: 3, empresa_id: 1, descricao: 'Venda afiliado Hotmart', categoria: 'Afiliados', tipo: 'entrada', valor: 2100.00, data: '2026-08-15' },
+      { id: 4, empresa_id: 2, descricao: 'Serviço dedetização', categoria: 'Serviços', tipo: 'entrada', valor: 450.00, data: '2026-08-22' },
+      { id: 5, empresa_id: 1, descricao: 'Hospedagem Vercel', categoria: 'Infraestrutura', tipo: 'saida', valor: 0.00, data: '2026-08-01' },
+      { id: 6, empresa_id: 1, descricao: 'Supabase gratuito', categoria: 'Infraestrutura', tipo: 'saida', valor: 0.00, data: '2026-08-01' },
+      { id: 7, empresa_id: 1, descricao: 'Domínio .com', categoria: 'Infraestrutura', tipo: 'saida', valor: 45.00, data: '2026-08-10' },
+      { id: 8, empresa_id: 2, descricao: 'Material de divulgação', categoria: 'Marketing', tipo: 'saida', valor: 120.00, data: '2026-08-12' },
+    ];
+
+    this.data.rh = [
+      { id: 1, nome: 'Alex Reis', cargo: 'Diretor Executivo', departamento: 'Diretoria', contrato: 'PJ', salario: 5000, admissao: '2024-01-15', status: 'ativo' },
+      { id: 2, nome: 'Maria Silva', cargo: 'Editora de Vídeo', departamento: 'Marketing', contrato: 'PJ', salario: 2500, admissao: '2025-03-10', status: 'ativo' },
+      { id: 3, nome: 'João Santos', cargo: 'Desenvolvedor', departamento: 'Tecnologia', contrato: 'CLT', salario: 6000, admissao: '2025-06-01', status: 'ativo' },
+    ];
+
+    this.data.investimentos = [
+      { id: 1, nome: 'Bitcoin', tipo: 'Cripto', jurisdicao: 'Internacional', moeda: 'USD', quantidade: 0.05, valor_unit: 60000, total: 3000 },
+      { id: 2, nome: 'PETR4', tipo: 'Ação', jurisdicao: 'BR', moeda: 'BRL', quantidade: 100, valor_unit: 38.50, total: 3850 },
+      { id: 3, nome: 'Tesouro Selic 2027', tipo: 'Renda Fixa', jurisdicao: 'BR', moeda: 'BRL', quantidade: 1, valor_unit: 15000, total: 15000 },
+    ];
+
+    this.data.afiliados = [
+      { id: 1, produto: 'O Código de Deus - Acesso Vitalício', plataforma: 'Hotmart', nicho: 'Espiritualidade', comissao: '—', nota: 4.5, status: 'ativo', roteiro: true, link: 'https://hotmart.com/codigodedeus' },
+      { id: 2, produto: 'Leadlovers', plataforma: 'Hotmart', nicho: 'Marketing digital', comissao: '100% recorrente', nota: 4.2, status: 'ativo', roteiro: true, link: 'https://hotmart.com/leadlovers' },
+      { id: 3, produto: 'Viva Sempre com Dinheiro (Nádia Pace)', plataforma: 'Hotmart', nicho: 'Finanças pessoais', comissao: '~27%', nota: 4.9, status: 'ativo', roteiro: true, link: 'https://hotmart.com/vivasempre' },
+      { id: 4, produto: 'IR Curso - 2ª Fase OAB Constitucional', plataforma: 'Hotmart', nicho: 'Concursos/educação', comissao: '—', nota: 4.0, status: 'ativo', roteiro: true, link: 'https://hotmart.com/ircurso' },
+      { id: 5, produto: 'Curso de Manutenção de Celulares', plataforma: 'Hotmart', nicho: 'Profissionalizante', comissao: '~45%', nota: 3.8, status: 'verificar', roteiro: false, link: 'https://hotmart.com/celulares' },
+      { id: 6, produto: 'Novo Empreenda', plataforma: 'Hotmart', nicho: 'Empreendedorismo', comissao: '~30%', nota: 1.0, status: 'risco', roteiro: false, link: 'https://hotmart.com/empreenda' },
+    ];
+
+    this.data.marketing = [
+      { id: 1, titulo: 'Código de Deus - Revelação', plataforma: 'Instagram', produto: 'O Código de Deus', status: 'pronto_para_gravacao', data: '2026-08-20' },
+      { id: 2, titulo: 'Leadlovers - Automatize', plataforma: 'YouTube', produto: 'Leadlovers', status: 'roteirizado', data: '2026-08-19' },
+      { id: 3, titulo: 'Viva Sempre - Liberdade', plataforma: 'TikTok', produto: 'Viva Sempre com Dinheiro', status: 'aguardando_credenciais', data: '2026-08-18' },
+      { id: 4, titulo: 'OAB - Constitucional', plataforma: 'Instagram', produto: 'IR Curso', status: 'planejado', data: '2026-08-15' },
+    ];
+
+    this.data.conselho = [
+      { id: 1, pauta: 'Devemos investir em tráfego pago para o produto "Código de Deus"?', data: '2026-08-20', resumo: 'O conselho recomenda aguardar acumular R$ 5.000 em caixa antes de investir em tráfego pago. Foco em conteúdo orgânico até lá.', pareceres: 6 }
+    ];
+
+    this.data.copiloto = [];
+    this.data.traducoes = [];
+
+    this.saveData();
+  },
+
+  // Login
+  async login() {
+    const email = document.getElementById('login-email').value;
+    const password = document.getElementById('login-password').value;
+    const geminiKey = document.getElementById('gemini-key').value;
+
+    if (!email || !password) {
+      this.toast('Preencha email e senha', 'error');
+      return;
+    }
+
+    // FIX: Chamar método direto, nunca separar do objeto (erro #1 do dossiê)
+    try {
+      // Simulação de auth — em produção usaria Supabase Auth
+      this.user = { email, name: email.split('@')[0], id: 'user_001' };
+      if (geminiKey) {
+        this.geminiKey = geminiKey;
+        localStorage.setItem('gemini_key', geminiKey);
+      }
+      localStorage.setItem('olho_user', JSON.stringify(this.user));
+      this.toast('Sistema iniciado com sucesso', 'success');
+      this.showApp();
+    } catch (e) {
+      this.toast('Erro no login: ' + e.message, 'error');
+    } finally {
+      // Sempre resetar loading (erro #1 corrigido)
+      // Não há loading state nesta versão simplificada
+    }
+  },
+
+  demoLogin() {
+    document.getElementById('login-email').value = 'demo@olhododono.com';
+    document.getElementById('login-password').value = 'demo123';
+    this.login();
+  },
+
+  logout() {
+    this.user = null;
+    localStorage.removeItem('olho_user');
+    document.getElementById('login-screen').classList.remove('hidden');
+    document.getElementById('main-app').classList.add('hidden');
+    this.toast('Sessão encerrada', 'info');
+  },
+
+  showApp() {
+    document.getElementById('login-screen').classList.add('hidden');
+    document.getElementById('main-app').classList.remove('hidden');
+    document.getElementById('user-name').textContent = this.user.name || this.user.email;
+    this.updateDashboard();
+    this.renderAll();
+  },
+
+  // Navegação
+  navigate(section) {
+    this.currentSection = section;
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.getElementById('section-' + section).classList.add('active');
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.getElementById('nav-' + section).classList.add('active');
+
+    if (section === 'dashboard') this.updateDashboard();
+    if (section === 'empresas') this.renderEmpresas();
+    if (section === 'financeiro') this.renderFinanceiro();
+    if (section === 'rh') this.renderRH();
+    if (section === 'investimentos') this.renderInvestimentos();
+    if (section === 'marketing') this.renderMarketing();
+    if (section === 'afiliados') this.renderAfiliados();
+    if (section === 'conselho') this.renderConselho();
+  },
+
+  // Dashboard
+  updateDashboard() {
+    const entradas = this.data.lancamentos.filter(l => l.tipo === 'entrada').reduce((a, b) => a + b.valor, 0);
+    const saidas = this.data.lancamentos.filter(l => l.tipo === 'saida').reduce((a, b) => a + b.valor, 0);
+    const saldo = entradas - saidas;
+    const meta = 500000;
+    const percentual = Math.min((saldo / meta) * 100, 100);
+
+    document.getElementById('dash-receita').textContent = this.formatMoney(entradas);
+    document.getElementById('dash-despesa').textContent = this.formatMoney(saidas);
+    document.getElementById('dash-saldo').textContent = this.formatMoney(saldo);
+    document.getElementById('dash-progress').style.width = percentual + '%';
+    document.getElementById('dash-meta-text').textContent = percentual.toFixed(1) + '% da meta mensal (R$ 500.000)';
+
+    // Sinal de investimento
+    const sinalEl = document.getElementById('dash-sinal');
+    const sinalTextEl = document.getElementById('dash-sinal-text');
+    if (saldo >= 5000) {
+      sinalEl.textContent = 'LIBERADO';
+      sinalEl.className = 'text-lg font-orbitron font-bold text-jarvis-success mt-1';
+      sinalTextEl.textContent = 'Meta de R$ 5.000 atingida. Tráfego pago liberado.';
+    } else {
+      sinalEl.textContent = 'AGUARDANDO';
+      sinalEl.className = 'text-lg font-orbitron font-bold text-jarvis-warning mt-1';
+      sinalTextEl.textContent = `Faltam ${this.formatMoney(5000 - saldo)} para liberar tráfego pago`;
+    }
+
+    // Alertas
+    const alertsDiv = document.getElementById('dash-alerts');
+    let alerts = [];
+    if (saldo < 0) alerts.push({ type: 'danger', text: 'Saldo negativo detectado!' });
+    if (this.data.afiliados.some(a => a.status === 'risco')) alerts.push({ type: 'warning', text: 'Produto afiliado com nota baixa detectado' });
+    if (this.data.marketing.some(m => m.status === 'aguardando_credenciais')) alerts.push({ type: 'info', text: 'Conteúdo aguardando credenciais de publicação' });
+    if (alerts.length === 0) alerts.push({ type: 'success', text: 'Sistema operando normalmente' });
+
+    alertsDiv.innerHTML = alerts.map(a => `
+      <div class="flex items-center gap-2 p-2 rounded-lg bg-jarvis-${a.type === 'danger' ? 'danger' : a.type === 'warning' ? 'warning' : a.type === 'info' ? 'cyan' : 'success'}/10 border border-jarvis-${a.type === 'danger' ? 'danger' : a.type === 'warning' ? 'warning' : a.type === 'info' ? 'cyan' : 'success'}/30 text-sm">
+        <span class="status-dot status-${a.type === 'info' ? 'online' : a.type}"></span>
+        ${a.text}
+      </div>
+    `).join('');
+
+    this.drawCharts(entradas, saidas);
+  },
+
+  drawCharts(entradas, saidas) {
+    // Gráfico de fluxo simples com canvas
+    const canvas = document.getElementById('chart-fluxo');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    canvas.width = canvas.offsetWidth;
+    canvas.height = 200;
+
+    const w = canvas.width;
+    const h = canvas.height;
+    const dias = 30;
+    const padding = 40;
+
+    ctx.clearRect(0, 0, w, h);
+
+    // Grid
+    ctx.strokeStyle = 'rgba(0,212,255,0.1)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+      const y = padding + (h - 2 * padding) * i / 4;
+      ctx.beginPath();
+      ctx.moveTo(padding, y);
+      ctx.lineTo(w - padding, y);
+      ctx.stroke();
+    }
+
+    // Gerar dados simulados de 30 dias
+    const entradasData = [];
+    const saidasData = [];
+    let accEntrada = 0;
+    let accSaida = 0;
+
+    for (let i = 0; i < dias; i++) {
+      accEntrada += Math.random() * (entradas / 20);
+      accSaida += Math.random() * (saidas / 20);
+      entradasData.push(accEntrada);
+      saidasData.push(accSaida);
+    }
+
+    const maxVal = Math.max(...entradasData, ...saidasData) * 1.2;
+
+    // Linha de entradas
+    ctx.strokeStyle = '#00ff88';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    entradasData.forEach((v, i) => {
+      const x = padding + (w - 2 * padding) * i / (dias - 1);
+      const y = h - padding - (v / maxVal) * (h - 2 * padding);
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    // Linha de saídas
+    ctx.strokeStyle = '#ff3366';
+    ctx.beginPath();
+    saidasData.forEach((v, i) => {
+      const x = padding + (w - 2 * padding) * i / (dias - 1);
+      const y = h - padding - (v / maxVal) * (h - 2 * padding);
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    // Gráfico de pizza
+    const canvasP = document.getElementById('chart-pizza');
+    if (!canvasP) return;
+    const ctxP = canvasP.getContext('2d');
+    canvasP.width = canvasP.offsetWidth;
+    canvasP.height = 200;
+
+    const wp = canvasP.width;
+    const hp = canvasP.height;
+    const radius = Math.min(wp, hp) / 2 - 20;
+    const centerX = wp / 2;
+    const centerY = hp / 2;
+
+    // Dados por empresa
+    const empresasVal = {};
+    this.data.lancamentos.filter(l => l.tipo === 'entrada').forEach(l => {
+      const emp = this.data.empresas.find(e => e.id === l.empresa_id);
+      const nome = emp ? emp.razao.split(' ')[0] : 'Outros';
+      empresasVal[nome] = (empresasVal[nome] || 0) + l.valor;
+    });
+
+    const total = Object.values(empresasVal).reduce((a, b) => a + b, 0);
+    const colors = ['#00d4ff', '#00ff88', '#ffaa00', '#ff3366', '#0066cc'];
+    let startAngle = 0;
+
+    Object.entries(empresasVal).forEach(([nome, val], i) => {
+      const sliceAngle = (val / total) * 2 * Math.PI;
+      ctxP.beginPath();
+      ctxP.moveTo(centerX, centerY);
+      ctxP.arc(centerX, centerY, radius, startAngle, startAngle + sliceAngle);
+      ctxP.closePath();
+      ctxP.fillStyle = colors[i % colors.length];
+      ctxP.fill();
+      ctxP.strokeStyle = '#0f1729';
+      ctxP.lineWidth = 2;
+      ctxP.stroke();
+      startAngle += sliceAngle;
+    });
+  },
+
+  // Empresas
+  renderEmpresas() {
+    const tbody = document.getElementById('table-empresas');
+    const search = document.getElementById('search-empresas')?.value?.toLowerCase() || '';
+
+    const filtered = this.data.empresas.filter(e => 
+      e.razao.toLowerCase().includes(search) || 
+      e.cnpj.includes(search)
+    );
+
+    tbody.innerHTML = filtered.map(e => `
+      <tr>
+        <td class="font-mono text-xs">${e.cnpj}</td>
+        <td class="font-medium">${e.razao}</td>
+        <td><span class="px-2 py-0.5 rounded text-xs ${e.camada === 'frente' ? 'bg-jarvis-cyan/10 text-jarvis-cyan' : e.camada === 'holding' ? 'bg-jarvis-blue/10 text-jarvis-blue' : 'bg-jarvis-success/10 text-jarvis-success'}">${e.camada.toUpperCase()}</span></td>
+        <td>${e.tipo}</td>
+        <td><span class="px-2 py-0.5 rounded text-xs ${e.status === 'ativa' ? 'bg-jarvis-success/10 text-jarvis-success' : 'bg-jarvis-danger/10 text-jarvis-danger'}">${e.status.toUpperCase()}</span></td>
+        <td>${e.responsavel}</td>
+        <td>
+          <button onclick="app.editarEmpresa(${e.id})" class="text-jarvis-cyan hover:text-white mr-2"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>
+          <button onclick="app.excluirEmpresa(${e.id})" class="text-jarvis-danger hover:text-white"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
+        </td>
+      </tr>
+    `).join('');
+
+    document.getElementById('count-frentes').textContent = this.data.empresas.filter(e => e.camada === 'frente').length;
+    document.getElementById('count-holding').textContent = this.data.empresas.filter(e => e.camada === 'holding').length;
+    document.getElementById('count-fundacao').textContent = this.data.empresas.filter(e => e.camada === 'fundacao').length;
+  },
+
+  filterEmpresas() {
+    this.renderEmpresas();
+  },
+
+  // Financeiro
+  renderFinanceiro() {
+    const entradas = this.data.lancamentos.filter(l => l.tipo === 'entrada').reduce((a, b) => a + b.valor, 0);
+    const saidas = this.data.lancamentos.filter(l => l.tipo === 'saida').reduce((a, b) => a + b.valor, 0);
+    document.getElementById('fin-entradas').textContent = this.formatMoney(entradas);
+    document.getElementById('fin-saidas').textContent = this.formatMoney(saidas);
+    document.getElementById('fin-saldo').textContent = this.formatMoney(entradas - saidas);
+
+    // Popular filtro de empresas
+    const select = document.getElementById('fin-filter-empresa');
+    if (select && select.options.length <= 1) {
+      this.data.empresas.forEach(e => {
+        const opt = document.createElement('option');
+        opt.value = e.id;
+        opt.textContent = e.razao;
+        select.appendChild(opt);
+      });
+    }
+
+    this.filterLancamentos();
+  },
+
+  filterLancamentos() {
+    const empresaFilter = document.getElementById('fin-filter-empresa')?.value;
+    const tipoFilter = document.getElementById('fin-filter-tipo')?.value;
+
+    let filtered = [...this.data.lancamentos];
+    if (empresaFilter) filtered = filtered.filter(l => l.empresa_id == empresaFilter);
+    if (tipoFilter) filtered = filtered.filter(l => l.tipo === tipoFilter);
+
+    filtered.sort((a, b) => new Date(b.data) - new Date(a.data));
+
+    const tbody = document.getElementById('table-lancamentos');
+    tbody.innerHTML = filtered.map(l => {
+      const emp = this.data.empresas.find(e => e.id === l.empresa_id);
+      return `
+        <tr>
+          <td>${this.formatDate(l.data)}</td>
+          <td>${emp ? emp.razao.split(' ')[0] : '-'}</td>
+          <td>${l.descricao}</td>
+          <td>${l.categoria}</td>
+          <td><span class="px-2 py-0.5 rounded text-xs ${l.tipo === 'entrada' ? 'bg-jarvis-success/10 text-jarvis-success' : 'bg-jarvis-danger/10 text-jarvis-danger'}">${l.tipo === 'entrada' ? 'ENTRADA' : 'SAÍDA'}</span></td>
+          <td class="font-mono ${l.tipo === 'entrada' ? 'text-jarvis-success' : 'text-jarvis-danger'}">${this.formatMoney(l.valor)}</td>
+          <td>
+            <button onclick="app.excluirLancamento(${l.id})" class="text-jarvis-danger hover:text-white"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  },
+
+  // RH
+  renderRH() {
+    document.getElementById('rh-total').textContent = this.data.rh.length;
+    document.getElementById('rh-clt').textContent = this.data.rh.filter(r => r.contrato === 'CLT').length;
+    document.getElementById('rh-pj').textContent = this.data.rh.filter(r => r.contrato === 'PJ').length;
+    const custo = this.data.rh.reduce((a, b) => a + b.salario, 0);
+    document.getElementById('rh-custo').textContent = 'R$ ' + custo.toLocaleString('pt-BR');
+
+    const tbody = document.getElementById('table-rh');
+    tbody.innerHTML = this.data.rh.map(r => `
+      <tr>
+        <td class="font-medium">${r.nome}</td>
+        <td>${r.cargo}</td>
+        <td>${r.departamento}</td>
+        <td><span class="px-2 py-0.5 rounded text-xs ${r.contrato === 'CLT' ? 'bg-jarvis-success/10 text-jarvis-success' : 'bg-jarvis-warning/10 text-jarvis-warning'}">${r.contrato}</span></td>
+        <td class="font-mono">${this.formatMoney(r.salario)}</td>
+        <td>${this.formatDate(r.admissao)}</td>
+        <td><span class="px-2 py-0.5 rounded text-xs ${r.status === 'ativo' ? 'bg-jarvis-success/10 text-jarvis-success' : 'bg-jarvis-danger/10 text-jarvis-danger'}">${r.status.toUpperCase()}</span></td>
+        <td>
+          <button onclick="app.excluirRH(${r.id})" class="text-jarvis-danger hover:text-white"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
+        </td>
+      </tr>
+    `).join('');
+  },
+
+  // Investimentos
+  renderInvestimentos() {
+    const total = this.data.investimentos.reduce((a, b) => a + b.total, 0);
+    document.getElementById('inv-total').textContent = this.formatMoney(total);
+    document.getElementById('inv-count').textContent = this.data.investimentos.length;
+
+    const tbody = document.getElementById('table-investimentos');
+    tbody.innerHTML = this.data.investimentos.map(i => `
+      <tr>
+        <td class="font-medium">${i.nome}</td>
+        <td><span class="px-2 py-0.5 rounded text-xs bg-jarvis-cyan/10 text-jarvis-cyan">${i.tipo}</span></td>
+        <td>${i.jurisdicao}</td>
+        <td>${i.moeda}</td>
+        <td class="font-mono">${i.quantidade}</td>
+        <td class="font-mono">${this.formatMoney(i.valor_unit)}</td>
+        <td class="font-mono font-bold text-jarvis-cyan">${this.formatMoney(i.total)}</td>
+        <td>
+          <button onclick="app.excluirInvestimento(${i.id})" class="text-jarvis-danger hover:text-white"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
+        </td>
+      </tr>
+    `).join('');
+  },
+
+  // Marketing
+  renderMarketing() {
+    document.getElementById('mkt-fila').textContent = this.data.marketing.length;
+    document.getElementById('mkt-publicados').textContent = this.data.marketing.filter(m => m.status === 'publicado').length;
+    document.getElementById('mkt-videos').textContent = this.data.marketing.filter(m => m.status === 'video_gerado').length;
+
+    const tbody = document.getElementById('table-marketing');
+    tbody.innerHTML = this.data.marketing.map(m => `
+      <tr>
+        <td class="font-medium">${m.titulo}</td>
+        <td><span class="px-2 py-0.5 rounded text-xs bg-jarvis-cyan/10 text-jarvis-cyan">${m.plataforma}</span></td>
+        <td>${m.produto}</td>
+        <td><span class="px-2 py-0.5 rounded text-xs ${this.getStatusColor(m.status)}">${this.formatStatus(m.status)}</span></td>
+        <td>${this.formatDate(m.data)}</td>
+        <td>
+          <button onclick="app.gerarVideoMarketing(${m.id})" class="text-jarvis-cyan hover:text-white mr-2" title="Gerar vídeo"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></button>
+          <button onclick="app.excluirMarketing(${m.id})" class="text-jarvis-danger hover:text-white"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
+        </td>
+      </tr>
+    `).join('');
+  },
+
+  filterMarketing(filter) {
+    // Simplificado — recarrega tudo por enquanto
+    this.renderMarketing();
+  },
+
+  // Afiliados
+  renderAfiliados() {
+    document.getElementById('aff-total').textContent = this.data.afiliados.length;
+    document.getElementById('aff-hotmart').textContent = this.data.afiliados.filter(a => a.plataforma === 'Hotmart').length;
+    const comissoes = this.data.afiliados.map(a => parseFloat(a.comissao) || 0).filter(c => c > 0);
+    const media = comissoes.length > 0 ? comissoes.reduce((a, b) => a + b, 0) / comissoes.length : 0;
+    document.getElementById('aff-comissao').textContent = media.toFixed(0) + '%';
+    document.getElementById('aff-roteiros').textContent = this.data.afiliados.filter(a => a.roteiro).length;
+
+    const tbody = document.getElementById('table-afiliados');
+    tbody.innerHTML = this.data.afiliados.map(a => `
+      <tr>
+        <td class="font-medium">${a.produto}</td>
+        <td><span class="px-2 py-0.5 rounded text-xs bg-jarvis-warning/10 text-jarvis-warning">${a.plataforma}</span></td>
+        <td>${a.nicho}</td>
+        <td>${a.comissao}</td>
+        <td><span class="${a.nota >= 4 ? 'text-jarvis-success' : a.nota >= 3 ? 'text-jarvis-warning' : 'text-jarvis-danger'}">${a.nota}</span></td>
+        <td><span class="px-2 py-0.5 rounded text-xs ${a.status === 'ativo' ? 'bg-jarvis-success/10 text-jarvis-success' : a.status === 'verificar' ? 'bg-jarvis-warning/10 text-jarvis-warning' : 'bg-jarvis-danger/10 text-jarvis-danger'}">${a.status.toUpperCase()}</span></td>
+        <td>
+          <button onclick="app.gerarRoteiroAfiliado(${a.id})" class="text-jarvis-cyan hover:text-white mr-2" title="Gerar roteiro"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 112.828 2.828L6.5 21.036H3v-3.572L16.732 3.732z"/></svg></button>
+          <button onclick="app.excluirAfiliado(${a.id})" class="text-jarvis-danger hover:text-white"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
+        </td>
+      </tr>
+    `).join('');
+  },
+
+  // Conselho
+  renderConselho() {
+    const historico = document.getElementById('conselho-historico');
+    historico.innerHTML = this.data.conselho.map(c => `
+      <div class="p-4 hover:bg-white/5 transition-colors">
+        <div class="flex justify-between items-start mb-2">
+          <p class="text-sm font-medium text-jarvis-cyan">${c.pauta}</p>
+          <span class="text-xs text-jarvis-muted">${this.formatDate(c.data)}</span>
+        </div>
+        <p class="text-sm text-jarvis-text mb-2">${c.resumo}</p>
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-jarvis-muted">${c.pareceres} pareceres</span>
+          <span class="px-2 py-0.5 rounded text-xs bg-jarvis-success/10 text-jarvis-success">Deliberado</span>
+        </div>
+      </div>
+    `).join('');
+  },
+
+  // Copiloto
+  async enviarCopiloto() {
+    const input = document.getElementById('copiloto-input');
+    const msg = input.value.trim();
+    if (!msg) return;
+
+    input.value = '';
+    this.addCopilotoMessage(msg, 'user');
+
+    // Mostrar typing
+    const typingId = 'typing-' + Date.now();
+    document.getElementById('copiloto-messages').insertAdjacentHTML('beforeend', `
+      <div id="${typingId}" class="flex gap-3">
+        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-jarvis-cyan to-jarvis-blue flex-shrink-0 flex items-center justify-center">
+          <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+        </div>
+        <div class="glass-panel rounded-lg rounded-tl-none p-3">
+          <div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>
+        </div>
+      </div>
+    `);
+    document.getElementById('copiloto-messages').scrollTop = document.getElementById('copiloto-messages').scrollHeight;
+
+    try {
+      const resposta = await this.callGemini(msg, 'copiloto');
+      document.getElementById(typingId).remove();
+      this.addCopilotoMessage(resposta, 'bot');
+    } catch (e) {
+      document.getElementById(typingId).remove();
+      this.addCopilotoMessage('Estou temporariamente indisponível. Tente novamente em alguns segundos. (Erro: ' + e.message + ')', 'bot');
+    }
+  },
+
+  addCopilotoMessage(text, sender) {
+    const div = document.getElementById('copiloto-messages');
+    const isBot = sender === 'bot';
+    div.insertAdjacentHTML('beforeend', `
+      <div class="flex gap-3 ${isBot ? '' : 'flex-row-reverse'}">
+        ${isBot ? `
+        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-jarvis-cyan to-jarvis-blue flex-shrink-0 flex items-center justify-center">
+          <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+        </div>` : `
+        <div class="w-8 h-8 rounded-full bg-jarvis-success/20 flex-shrink-0 flex items-center justify-center text-jarvis-success font-bold text-xs">D</div>
+        `}
+        <div class="glass-panel rounded-lg ${isBot ? 'rounded-tl-none' : 'rounded-tr-none'} p-3 max-w-[80%]">
+          <p class="text-sm whitespace-pre-wrap">${this.escapeHtml(text)}</p>
+          <p class="text-xs text-jarvis-muted mt-1">${isBot ? 'Copiloto' : 'Você'} • ${new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}</p>
+        </div>
+      </div>
+    `);
+    div.scrollTop = div.scrollHeight;
+
+    this.data.copiloto.push({ sender, text, time: new Date().toISOString() });
+    this.saveData();
+  },
+
+  limparCopiloto() {
+    document.getElementById('copiloto-messages').innerHTML = `
+      <div class="flex gap-3">
+        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-jarvis-cyan to-jarvis-blue flex-shrink-0 flex items-center justify-center">
+          <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+        </div>
+        <div class="glass-panel rounded-lg rounded-tl-none p-3 max-w-[80%]">
+          <p class="text-sm">Conversa limpa. Como posso ajudar?</p>
+          <p class="text-xs text-jarvis-muted mt-1">Copiloto • agora</p>
+        </div>
+      </div>
+    `;
+    this.data.copiloto = [];
+    this.saveData();
+  },
+
+  // Tradução
+  async traduzir() {
+    const source = document.getElementById('trad-source').value.trim();
+    const target = document.getElementById('trad-target').value;
+    if (!source) {
+      this.toast('Digite um texto para traduzir', 'warning');
+      return;
+    }
+
+    const btn = document.getElementById('btn-traduzir');
+    btn.disabled = true;
+    btn.innerHTML = '<div class="jarvis-loader w-4 h-4 border-2"></div>';
+
+    try {
+      const prompt = `Traduza o seguinte texto para ${this.langName(target)}. Responda APENAS com a tradução, sem explicações:
+
+${source}`;
+      const result = await this.callGemini(prompt, 'traducao');
+      document.getElementById('trad-result').value = result;
+
+      // Detectar idioma (simplificado)
+      const detected = this.detectLang(source);
+      document.getElementById('detected-lang').textContent = 'Detectado: ' + detected;
+
+      this.data.traducoes.unshift({
+        source,
+        target: result,
+        from: detected,
+        to: target,
+        date: new Date().toISOString()
+      });
+      this.saveData();
+      this.renderTraducoes();
+    } catch (e) {
+      this.toast('Erro na tradução: ' + e.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = 'Traduzir';
+    }
+  },
+
+  renderTraducoes() {
+    const div = document.getElementById('trad-historico');
+    div.innerHTML = this.data.traducoes.slice(0, 10).map(t => `
+      <div class="p-3 hover:bg-white/5 transition-colors">
+        <div class="flex justify-between items-start mb-1">
+          <span class="text-xs text-jarvis-cyan">${t.from} → ${this.langName(t.to)}</span>
+          <span class="text-xs text-jarvis-muted">${this.formatDate(t.date)}</span>
+        </div>
+        <p class="text-sm text-jarvis-muted truncate">${t.source.substring(0, 80)}...</p>
+      </div>
+    `).join('');
+  },
+
+  copiarTraducao() {
+    const text = document.getElementById('trad-result').value;
+    navigator.clipboard.writeText(text).then(() => this.toast('Copiado!', 'success'));
+  },
+
+  limparTraducao() {
+    document.getElementById('trad-source').value = '';
+    document.getElementById('trad-result').value = '';
+    document.getElementById('detected-lang').textContent = 'Auto-detectar';
+  },
+
+  // Gemini API
+  async callGemini(prompt, context = 'general') {
+    // Se não tem chave, usa simulação inteligente
+    if (!this.geminiKey) {
+      return this.simulateGemini(prompt, context);
+    }
+
+    // FIX: Usar gemini-flash-latest, nunca versão fixa (erro #3 do dossiê)
+    const model = 'gemini-flash-latest';
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${this.geminiKey}`;
+
+    // FIX: Retry inteligente com backoff exponencial (erro #4 do dossiê)
+    let lastError;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { temperature: 0.7, maxOutputTokens: 2048 }
+          })
+        });
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          const errMsg = errData.error?.message || '';
+
+          // FIX: Ler tempo de espera sugerido pelo Gemini (erro #4)
+          const waitMatch = errMsg.match(/retry in (\d+)s/i);
+          if (waitMatch) {
+            const waitSec = parseInt(waitMatch[1]) + 1;
+            await this.sleep(waitSec * 1000);
+            continue;
+          }
+
+          if (response.status === 429 || response.status === 503) {
+            const backoff = Math.pow(2, attempt) * 1500;
+            await this.sleep(backoff);
+            continue;
+          }
+
+          throw new Error(errMsg || `HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        return data.candidates?.[0]?.content?.parts?.[0]?.text || 'Sem resposta';
+      } catch (e) {
+        lastError = e;
+        if (attempt < 2) {
+          await this.sleep(Math.pow(2, attempt) * 1500);
+        }
+      }
+    }
+
+    throw lastError || new Error('Falha após múltiplas tentativas');
+  },
+
+  simulateGemini(prompt, context) {
+    // Simulação inteligente quando não há chave API
+    return new Promise(resolve => {
+      setTimeout(() => {
+        const lower = prompt.toLowerCase();
+
+        if (context === 'copiloto') {
+          if (lower.includes('receita') || lower.includes('venda')) {
+            resolve('Analisando seus dados: você tem R$ 4.710,50 em receitas este mês. Faltam R$ 289,50 para atingir o sinal de investimento de R$ 5.000. Recomendo focar nos produtos de afiliado da Hotmart, especialmente "O Código de Deus" e "Viva Sempre com Dinheiro", que têm as melhores notas.');
+          } else if (lower.includes('empresa') || lower.includes('societ')) {
+            resolve('Sua estrutura atual tem 4 empresas: 2 frentes operacionais, 1 holding patrimonial e 1 fundação. A hierarquia formal de 3 camadas ainda precisa ser implementada no banco de dados como vínculo mãe-filha. Quer que eu detalhe o fluxo de caixa entre as camadas?');
+          } else if (lower.includes('video') || lower.includes('roteiro')) {
+            resolve('Você tem 4 itens na fila de conteúdo. Recomendo priorizar os roteiros dos produtos com nota acima de 4.0. O gerador de vídeo local está pronto — basta inserir o texto e o CTA. Sem custo de narração, claro.');
+          } else {
+            resolve('Entendido. Estou operando em modo simulação (sem chave Gemini). Para respostas com IA real, configure sua chave API em Configurações. Posso ajudar com navegação no sistema, análise de dados locais e geração de relatórios.');
+          }
+        } else if (context === 'conselho') {
+          resolve(`## PARECER DO CONSELHO DE IA
+
+**Deliberação:** ${prompt.substring(0, 100)}...
+
+**Lógica:** Análise dos números indica cautela. Os dados financeiros atuais suportam decisão conservadora.
+
+**Estratégia:** Recomenda-se ação gradual, com milestones claros de validação antes de comprometimento total.
+
+**Filosofia:** Alinhado aos princípios de Zero Inventory — não gastar antes de validar retorno.
+
+**Primeiros Princípios:** A receita deve preceder o investimento. Caixa positivo é regra, não exceção.
+
+**Ética & Governança:** Verificado — nenhuma violação de compliance identificada nesta pauta.
+
+**Sistêmico:** Impacto em todas as frentes avaliado. Risco sistêmico: BAIXO.
+
+**SÍNTESE EXECUTIVA:** O Conselho recomenda PROSSEGUIR COM CAUTELA. Monitore métricas semanais e retorne em 7 dias.`);
+        } else if (context === 'traducao') {
+          resolve('[Modo simulação: Tradução requer chave Gemini]');
+        } else if (context === 'roteiro') {
+          resolve(`ROTEIRO DE VÍDEO — 60 SEGUNDOS
+
+[0-3s] HOOK: "Você não vai acreditar no que descobri..."
+[3-15s] PROBLEMA: Fale sobre a dor do público-alvo
+[15-35s] SOLUÇÃO: Apresente o produto de forma natural
+[35-50s] PROVA SOCIAL: Depoimento ou resultado
+[50-58s] CTA: "Link na bio — só hoje com desconto"
+[58-60s] END CARD: Logo + @olhododono
+
+LEGENDA: 🔥 Não perca! Link na bio 👆
+HASHTAGS: #empreendedorismo #afiliado #rendaextra`);
+        } else {
+          resolve('Resposta simulada. Configure uma chave Gemini real em Configurações para obter respostas da IA.');
+        }
+      }, 800 + Math.random() * 700);
+    });
+  },
+
+  // Conselho de IA
+  async consultarConselho() {
+    const pauta = document.getElementById('conselho-pauta').value.trim();
+    if (!pauta) {
+      this.toast('Descreva a pauta para o conselho', 'warning');
+      return;
+    }
+
+    const btn = document.getElementById('btn-conselho');
+    btn.disabled = true;
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<div class="jarvis-loader w-4 h-4 border-2 inline-block mr-2"></div>Deliberando...';
+
+    try {
+      // FIX: Delay entre chamadas para evitar cota (erro #4)
+      await this.sleep(1500);
+
+      const prompt = `Você é o Conselho de IA do "Olho do Dono". Analise a seguinte pauta de negócio e forneça parecer estruturado com as perspectivas de: Lógica, Estratégia, Filosofia, Primeiros Princípios, Ética & Governança, e Pensamento Sistêmico. Depois forneça uma SÍNTESE EXECUTIVA com recomendação clara (APROVAR/REPROVAR/ADiar).
+
+RESTRICAO_PRODUTO: Este conselho é ferramenta de sinalização/compliance. Nunca recomende evasão fiscal, fraude ou práticas ilegais.
+
+PAUTA: ${pauta}`;
+
+      const resposta = await this.callGemini(prompt, 'conselho');
+
+      this.data.conselho.unshift({
+        id: Date.now(),
+        pauta,
+        data: new Date().toISOString(),
+        resumo: resposta.substring(0, 300) + '...',
+        pareceres: document.getElementById('cons-rapido').checked ? 1 : 6,
+        fullText: resposta
+      });
+      this.saveData();
+
+      document.getElementById('conselho-pauta').value = '';
+      this.renderConselho();
+      this.toast('Parecer emitido pelo Conselho', 'success');
+    } catch (e) {
+      this.toast('Erro no conselho: ' + e.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = originalText;
+    }
+  },
+
+  // Gerar Vídeo Local (Canvas + MediaRecorder)
+  async gerarVideo() {
+    const texto = document.getElementById('video-texto').value.trim() || 'O Olho do Dono
+Sistema de Comando Central';
+    const cta = document.getElementById('video-cta').value || 'Link na bio 🔗';
+
+    this.toast('Gerando vídeo... Aguarde', 'info');
+
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = 1080;
+      canvas.height = 1920;
+      const ctx = canvas.getContext('2d');
+
+      const duration = 5000; // 5 segundos
+      const fps = 30;
+      const totalFrames = (duration / 1000) * fps;
+      const frames = [];
+
+      // Gerar frames
+      for (let i = 0; i < totalFrames; i++) {
+        const progress = i / totalFrames;
+
+        // Fundo degradê animado
+        const gradient = ctx.createLinearGradient(0, 0, 1080, 1920);
+        const hue1 = (200 + progress * 40) % 360;
+        const hue2 = (240 + progress * 60) % 360;
+        gradient.addColorStop(0, `hsl(${hue1}, 70%, 10%)`);
+        gradient.addColorStop(1, `hsl(${hue2}, 70%, 20%)`);
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, 1080, 1920);
+
+        // Grid decorativo
+        ctx.strokeStyle = 'rgba(0, 212, 255, 0.1)';
+        ctx.lineWidth = 1;
+        for (let x = 0; x < 1080; x += 60) {
+          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 1920); ctx.stroke();
+        }
+        for (let y = 0; y < 1920; y += 60) {
+          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(1080, y); ctx.stroke();
+        }
+
+        // Partículas
+        for (let p = 0; p < 20; p++) {
+          const px = (Math.sin(p * 1.5 + progress * Math.PI * 2) * 400 + 540);
+          const py = (Math.cos(p * 2.3 + progress * Math.PI * 2) * 800 + 960);
+          ctx.fillStyle = `rgba(0, 212, 255, ${0.3 + Math.sin(progress * Math.PI * 4 + p) * 0.2})`;
+          ctx.beginPath();
+          ctx.arc(px, py, 3 + Math.sin(progress * Math.PI * 2 + p) * 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // Texto principal com animação de entrada
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        const lines = texto.split('\n');
+        const startY = 1920 / 2 - (lines.length * 60) / 2;
+
+        lines.forEach((line, idx) => {
+          const lineProgress = Math.min(1, Math.max(0, (progress * 3) - idx * 0.2));
+          const scale = 0.5 + lineProgress * 0.5;
+          const alpha = lineProgress;
+
+          ctx.save();
+          ctx.globalAlpha = alpha;
+          ctx.translate(540, startY + idx * 80);
+          ctx.scale(scale, scale);
+          ctx.font = 'bold 64px "Inter", sans-serif';
+          ctx.shadowColor = 'rgba(0, 212, 255, 0.5)';
+          ctx.shadowBlur = 20;
+          ctx.fillText(line, 0, 0);
+          ctx.restore();
+        });
+
+        // CTA na parte inferior
+        ctx.fillStyle = 'rgba(0, 212, 255, 0.9)';
+        ctx.fillRect(240, 1700, 600, 100);
+        ctx.fillStyle = '#0a0e1a';
+        ctx.font = 'bold 48px "Orbitron", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(cta, 540, 1760);
+
+        // Logo corner
+        ctx.fillStyle = 'rgba(0, 212, 255, 0.3)';
+        ctx.font = '24px "Orbitron", monospace';
+        ctx.textAlign = 'left';
+        ctx.fillText('O OLHO DO DONO', 40, 60);
+
+        // Scan line
+        const scanY = (progress * 1920 * 2) % 2400 - 240;
+        ctx.fillStyle = 'rgba(0, 212, 255, 0.05)';
+        ctx.fillRect(0, scanY, 1080, 4);
+
+        frames.push(canvas.toDataURL('image/jpeg', 0.8));
+      }
+
+      // Criar vídeo com MediaRecorder
+      const stream = canvas.captureStream(fps);
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' });
+      const chunks = [];
+
+      mediaRecorder.ondataavailable = e => chunks.push(e.data);
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(chunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+
+        // Preview
+        const previewArea = document.getElementById('video-preview-area');
+        previewArea.innerHTML = `<video src="${url}" controls class="w-full h-full object-contain rounded-lg"></video>`;
+
+        // Download link (converter para mp4 não é trivial no browser, então oferecemos webm)
+        const downloadArea = document.getElementById('video-download-area');
+        const downloadLink = document.getElementById('video-download-link');
+        downloadLink.href = url;
+        downloadLink.download = 'video-olho-do-dono.webm';
+        downloadArea.classList.remove('hidden');
+
+        this.toast('Vídeo gerado com sucesso!', 'success');
+      };
+
+      // Renderizar frames no canvas e gravar
+      let frameIdx = 0;
+      const img = new Image();
+
+      mediaRecorder.start();
+
+      const renderFrame = () => {
+        if (frameIdx >= frames.length) {
+          mediaRecorder.stop();
+          return;
+        }
+        img.src = frames[frameIdx];
+        img.onload = () => {
+          ctx.drawImage(img, 0, 0);
+          frameIdx++;
+          requestAnimationFrame(renderFrame);
+        };
+      };
+
+      renderFrame();
+
+    } catch (e) {
+      this.toast('Erro ao gerar vídeo: ' + e.message, 'error');
+      console.error(e);
+    }
+  },
+
+  gerarVideoMarketing(id) {
+    const item = this.data.marketing.find(m => m.id === id);
+    if (item) {
+      document.getElementById('video-texto').value = item.titulo;
+      this.navigate('marketing');
+      this.toast('Preencha o texto e clique em Gerar Vídeo', 'info');
+    }
+  },
+
+  // Modais e CRUD
+  openModal(type, id = null) {
+    const overlay = document.getElementById('modal-overlay');
+    const title = document.getElementById('modal-title');
+    const body = document.getElementById('modal-body');
+
+    overlay.classList.remove('hidden');
+
+    switch(type) {
+      case 'empresa': {
+        title.textContent = id ? 'Editar Empresa' : 'Nova Empresa';
+        const emp = id ? this.data.empresas.find(e => e.id === id) : null;
+        body.innerHTML = `
+          <div class="space-y-3">
+            <div><label class="block text-xs text-jarvis-muted uppercase mb-1">CNPJ</label><input type="text" id="modal-cnpj" class="w-full px-3 py-2 rounded-lg text-sm" value="${emp?.cnpj || ''}"></div>
+            <div><label class="block text-xs text-jarvis-muted uppercase mb-1">Razão Social</label><input type="text" id="modal-razao" class="w-full px-3 py-2 rounded-lg text-sm" value="${emp?.razao || ''}"></div>
+            <div class="grid grid-cols-2 gap-3">
+              <div><label class="block text-xs text-jarvis-muted uppercase mb-1">Camada</label>
+                <select id="modal-camada" class="w-full px-3 py-2 rounded-lg text-sm">
+                  <option value="frente" ${emp?.camada === 'frente' ? 'selected' : ''}>Frente Operacional</option>
+                  <option value="holding" ${emp?.camada === 'holding' ? 'selected' : ''}>Holding Patrimonial</option>
+                  <option value="fundacao" ${emp?.camada === 'fundacao' ? 'selected' : ''}>Fundação</option>
+                </select>
+              </div>
+              <div><label class="block text-xs text-jarvis-muted uppercase mb-1">Tipo Jurídico</label><input type="text" id="modal-tipo" class="w-full px-3 py-2 rounded-lg text-sm" value="${emp?.tipo || 'LTDA'}"></div>
+            </div>
+            <div><label class="block text-xs text-jarvis-muted uppercase mb-1">Responsável Legal</label><input type="text" id="modal-responsavel" class="w-full px-3 py-2 rounded-lg text-sm" value="${emp?.responsavel || ''}"></div>
+            <div class="flex justify-end gap-2 mt-4">
+              <button onclick="app.closeModal()" class="px-4 py-2 rounded-lg text-sm border border-jarvis-border text-jarvis-muted hover:text-white">Cancelar</button>
+              <button onclick="app.salvarEmpresa(${id || 'null'})" class="btn-success px-4 py-2 rounded-lg text-sm">Salvar</button>
+            </div>
+          </div>
+        `;
+        break;
+      }
+
+      case 'lancamento': {
+        title.textContent = 'Novo Lançamento';
+        body.innerHTML = `
+          <div class="space-y-3">
+            <div><label class="block text-xs text-jarvis-muted uppercase mb-1">Empresa</label>
+              <select id="modal-lanc-empresa" class="w-full px-3 py-2 rounded-lg text-sm">
+                ${this.data.empresas.map(e => `<option value="${e.id}">${e.razao}</option>`).join('')}
+              </select>
+            </div>
+            <div><label class="block text-xs text-jarvis-muted uppercase mb-1">Descrição</label><input type="text" id="modal-lanc-desc" class="w-full px-3 py-2 rounded-lg text-sm"></div>
+            <div class="grid grid-cols-2 gap-3">
+              <div><label class="block text-xs text-jarvis-muted uppercase mb-1">Tipo</label>
+                <select id="modal-lanc-tipo" class="w-full px-3 py-2 rounded-lg text-sm">
+                  <option value="entrada">Entrada</option>
+                  <option value="saida">Saída</option>
+                </select>
+              </div>
+              <div><label class="block text-xs text-jarvis-muted uppercase mb-1">Valor</label><input type="number" id="modal-lanc-valor" class="w-full px-3 py-2 rounded-lg text-sm" step="0.01"></div>
+            </div>
+            <div><label class="block text-xs text-jarvis-muted uppercase mb-1">Categoria</label><input type="text" id="modal-lanc-cat" class="w-full px-3 py-2 rounded-lg text-sm" value="Geral"></div>
+            <div><label class="block text-xs text-jarvis-muted uppercase mb-1">Data</label><input type="date" id="modal-lanc-data" class="w-full px-3 py-2 rounded-lg text-sm" value="${new Date().toISOString().split('T')[0]}"></div>
+            <div class="flex justify-end gap-2 mt-4">
+              <button onclick="app.closeModal()" class="px-4 py-2 rounded-lg text-sm border border-jarvis-border text-jarvis-muted hover:text-white">Cancelar</button>
+              <button onclick="app.salvarLancamento()" class="btn-success px-4 py-2 rounded-lg text-sm">Salvar</button>
+            </div>
+          </div>
+        `;
+        break;
+      }
+
+      case 'colaborador': {
+        title.textContent = 'Novo Colaborador';
+        body.innerHTML = `
+          <div class="space-y-3">
+            <div><label class="block text-xs text-jarvis-muted uppercase mb-1">Nome</label><input type="text" id="modal-rh-nome" class="w-full px-3 py-2 rounded-lg text-sm"></div>
+            <div class="grid grid-cols-2 gap-3">
+              <div><label class="block text-xs text-jarvis-muted uppercase mb-1">Cargo</label><input type="text" id="modal-rh-cargo" class="w-full px-3 py-2 rounded-lg text-sm"></div>
+              <div><label class="block text-xs text-jarvis-muted uppercase mb-1">Departamento</label><input type="text" id="modal-rh-dept" class="w-full px-3 py-2 rounded-lg text-sm"></div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div><label class="block text-xs text-jarvis-muted uppercase mb-1">Contrato</label>
+                <select id="modal-rh-contrato" class="w-full px-3 py-2 rounded-lg text-sm">
+                  <option value="CLT">CLT</option>
+                  <option value="PJ">PJ</option>
+                  <option value="Estágio">Estágio</option>
+                  <option value="Autônomo">Autônomo</option>
+                </select>
+              </div>
+              <div><label class="block text-xs text-jarvis-muted uppercase mb-1">Salário</label><input type="number" id="modal-rh-salario" class="w-full px-3 py-2 rounded-lg text-sm" step="0.01"></div>
+            </div>
+            <div><label class="block text-xs text-jarvis-muted uppercase mb-1">Data de Admissão</label><input type="date" id="modal-rh-admissao" class="w-full px-3 py-2 rounded-lg text-sm" value="${new Date().toISOString().split('T')[0]}"></div>
+            <div class="flex justify-end gap-2 mt-4">
+              <button onclick="app.closeModal()" class="px-4 py-2 rounded-lg text-sm border border-jarvis-border text-jarvis-muted hover:text-white">Cancelar</button>
+              <button onclick="app.salvarColaborador()" class="btn-success px-4 py-2 rounded-lg text-sm">Salvar</button>
+            </div>
+          </div>
+        `;
+        break;
+      }
+
+      case 'investimento': {
+        title.textContent = 'Novo Investimento';
+        body.innerHTML = `
+          <div class="space-y-3">
+            <div><label class="block text-xs text-jarvis-muted uppercase mb-1">Nome do Ativo</label><input type="text" id="modal-inv-nome" class="w-full px-3 py-2 rounded-lg text-sm"></div>
+            <div class="grid grid-cols-2 gap-3">
+              <div><label class="block text-xs text-jarvis-muted uppercase mb-1">Tipo</label>
+                <select id="modal-inv-tipo" class="w-full px-3 py-2 rounded-lg text-sm">
+                  <option value="Ação">Ação</option>
+                  <option value="Renda Fixa">Renda Fixa</option>
+                  <option value="Fundo">Fundo</option>
+                  <option value="Cripto">Cripto</option>
+                  <option value="Imóvel">Imóvel</option>
+                </select>
+              </div>
+              <div><label class="block text-xs text-jarvis-muted uppercase mb-1">Jurisdição</label><input type="text" id="modal-inv-juris" class="w-full px-3 py-2 rounded-lg text-sm" value="BR"></div>
+            </div>
+            <div class="grid grid-cols-3 gap-3">
+              <div><label class="block text-xs text-jarvis-muted uppercase mb-1">Quantidade</label><input type="number" id="modal-inv-qtd" class="w-full px-3 py-2 rounded-lg text-sm" step="0.0001"></div>
+              <div><label class="block text-xs text-jarvis-muted uppercase mb-1">Valor Unit.</label><input type="number" id="modal-inv-unit" class="w-full px-3 py-2 rounded-lg text-sm" step="0.01"></div>
+              <div><label class="block text-xs text-jarvis-muted uppercase mb-1">Moeda</label><input type="text" id="modal-inv-moeda" class="w-full px-3 py-2 rounded-lg text-sm" value="BRL"></div>
+            </div>
+            <div class="flex justify-end gap-2 mt-4">
+              <button onclick="app.closeModal()" class="px-4 py-2 rounded-lg text-sm border border-jarvis-border text-jarvis-muted hover:text-white">Cancelar</button>
+              <button onclick="app.salvarInvestimento()" class="btn-success px-4 py-2 rounded-lg text-sm">Salvar</button>
+            </div>
+          </div>
+        `;
+        break;
+      }
+
+      case 'afiliado': {
+        title.textContent = 'Novo Produto de Afiliado';
+        body.innerHTML = `
+          <div class="space-y-3">
+            <div><label class="block text-xs text-jarvis-muted uppercase mb-1">Produto</label><input type="text" id="modal-aff-produto" class="w-full px-3 py-2 rounded-lg text-sm"></div>
+            <div class="grid grid-cols-2 gap-3">
+              <div><label class="block text-xs text-jarvis-muted uppercase mb-1">Plataforma</label>
+                <select id="modal-aff-plat" class="w-full px-3 py-2 rounded-lg text-sm">
+                  <option value="Hotmart">Hotmart</option>
+                  <option value="Amazon">Amazon</option>
+                  <option value="Shopee">Shopee</option>
+                  <option value="Mercado Livre">Mercado Livre</option>
+                </select>
+              </div>
+              <div><label class="block text-xs text-jarvis-muted uppercase mb-1">Nicho</label><input type="text" id="modal-aff-nicho" class="w-full px-3 py-2 rounded-lg text-sm"></div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div><label class="block text-xs text-jarvis-muted uppercase mb-1">Comissão</label><input type="text" id="modal-aff-comissao" class="w-full px-3 py-2 rounded-lg text-sm" placeholder="ex: 30%"></div>
+              <div><label class="block text-xs text-jarvis-muted uppercase mb-1">Link</label><input type="url" id="modal-aff-link" class="w-full px-3 py-2 rounded-lg text-sm"></div>
+            </div>
+            <div class="flex justify-end gap-2 mt-4">
+              <button onclick="app.closeModal()" class="px-4 py-2 rounded-lg text-sm border border-jarvis-border text-jarvis-muted hover:text-white">Cancelar</button>
+              <button onclick="app.salvarAfiliado()" class="btn-success px-4 py-2 rounded-lg text-sm">Salvar</button>
+            </div>
+          </div>
+        `;
+        break;
+      }
+
+      case 'roteiro': {
+        title.textContent = 'Novo Roteiro de Vídeo';
+        body.innerHTML = `
+          <div class="space-y-3">
+            <div><label class="block text-xs text-jarvis-muted uppercase mb-1">Título</label><input type="text" id="modal-rot-titulo" class="w-full px-3 py-2 rounded-lg text-sm"></div>
+            <div class="grid grid-cols-2 gap-3">
+              <div><label class="block text-xs text-jarvis-muted uppercase mb-1">Plataforma</label>
+                <select id="modal-rot-plat" class="w-full px-3 py-2 rounded-lg text-sm">
+                  <option value="Instagram">Instagram</option>
+                  <option value="YouTube">YouTube</option>
+                  <option value="TikTok">TikTok</option>
+                </select>
+              </div>
+              <div><label class="block text-xs text-jarvis-muted uppercase mb-1">Produto/Afiliado</label>
+                <select id="modal-rot-produto" class="w-full px-3 py-2 rounded-lg text-sm">
+                  <option value="">Nenhum</option>
+                  ${this.data.afiliados.map(a => `<option value="${a.produto}">${a.produto}</option>`).join('')}
+                </select>
+              </div>
+            </div>
+            <div><label class="block text-xs text-jarvis-muted uppercase mb-1">Tema/Assunto</label><textarea id="modal-rot-tema" rows="3" class="w-full px-3 py-2 rounded-lg text-sm" placeholder="Descreva o tema do vídeo..."></textarea></div>
+            <div class="flex justify-end gap-2 mt-4">
+              <button onclick="app.closeModal()" class="px-4 py-2 rounded-lg text-sm border border-jarvis-border text-jarvis-muted hover:text-white">Cancelar</button>
+              <button onclick="app.gerarRoteiroModal()" class="btn-jarvis px-4 py-2 rounded-lg text-sm">Gerar com IA</button>
+              <button onclick="app.salvarRoteiro()" class="btn-success px-4 py-2 rounded-lg text-sm">Salvar Manual</button>
+            </div>
+          </div>
+        `;
+        break;
+      }
+    }
+  }},
+
+  closeModal(e) {
+    if (e && e.target !== e.currentTarget) return;
+    document.getElementById('modal-overlay').classList.add('hidden');
+  },
+
+  // CRUD Empresas
+  salvarEmpresa(id) {
+    const cnpj = document.getElementById('modal-cnpj').value;
+    const razao = document.getElementById('modal-razao').value;
+    const camada = document.getElementById('modal-camada').value;
+    const tipo = document.getElementById('modal-tipo').value;
+    const responsavel = document.getElementById('modal-responsavel').value;
+
+    if (!razao) { this.toast('Razão social é obrigatória', 'error'); return; }
+
+    if (id) {
+      const idx = this.data.empresas.findIndex(e => e.id === id);
+      if (idx >= 0) this.data.empresas[idx] = { ...this.data.empresas[idx], cnpj, razao, camada, tipo, responsavel };
+    } else {
+      this.data.empresas.push({
+        id: Date.now(), cnpj, razao, camada, tipo, status: 'ativa', responsavel, jurisdicao: 'BR', moeda: 'BRL'
+      });
+    }
+
+    this.saveData();
+    this.closeModal();
+    this.renderEmpresas();
+    this.toast('Empresa salva', 'success');
+  },
+
+  editarEmpresa(id) { this.openModal('empresa', id); },
+
+  excluirEmpresa(id) {
+    if (!confirm('Confirmar exclusão?')) return;
+    this.data.empresas = this.data.empresas.filter(e => e.id !== id);
+    this.saveData();
+    this.renderEmpresas();
+    this.toast('Empresa removida', 'info');
+  },
+
+  // CRUD Lançamentos
+  salvarLancamento() {
+    const empresa_id = parseInt(document.getElementById('modal-lanc-empresa').value);
+    const descricao = document.getElementById('modal-lanc-desc').value;
+    const tipo = document.getElementById('modal-lanc-tipo').value;
+    const valor = parseFloat(document.getElementById('modal-lanc-valor').value);
+    const categoria = document.getElementById('modal-lanc-cat').value;
+    const data = document.getElementById('modal-lanc-data').value;
+
+    if (!descricao || isNaN(valor)) { this.toast('Preencha todos os campos', 'error'); return; }
+
+    // FIX: Sempre setar created_by (erro #2 do dossiê)
+    this.data.lancamentos.push({
+      id: Date.now(), empresa_id, descricao, tipo, valor, categoria, data,
+      created_by: this.user?.id || 'user_001'
+    });
+
+    this.saveData();
+    this.closeModal();
+    this.renderFinanceiro();
+    this.updateDashboard();
+    this.toast('Lançamento salvo', 'success');
+  },
+
+  excluirLancamento(id) {
+    if (!confirm('Confirmar exclusão?')) return;
+    this.data.lancamentos = this.data.lancamentos.filter(l => l.id !== id);
+    this.saveData();
+    this.renderFinanceiro();
+    this.updateDashboard();
+    this.toast('Lançamento removido', 'info');
+  },
+
+  // CRUD RH
+  salvarColaborador() {
+    const nome = document.getElementById('modal-rh-nome').value;
+    const cargo = document.getElementById('modal-rh-cargo').value;
+    const departamento = document.getElementById('modal-rh-dept').value;
+    const contrato = document.getElementById('modal-rh-contrato').value;
+    const salario = parseFloat(document.getElementById('modal-rh-salario').value);
+    const admissao = document.getElementById('modal-rh-admissao').value;
+
+    if (!nome || isNaN(salario)) { this.toast('Preencha todos os campos', 'error'); return; }
+
+    this.data.rh.push({ id: Date.now(), nome, cargo, departamento, contrato, salario, admissao, status: 'ativo' });
+    this.saveData();
+    this.closeModal();
+    this.renderRH();
+    this.toast('Colaborador cadastrado', 'success');
+  },
+
+  excluirRH(id) {
+    if (!confirm('Confirmar exclusão?')) return;
+    this.data.rh = this.data.rh.filter(r => r.id !== id);
+    this.saveData();
+    this.renderRH();
+    this.toast('Colaborador removido', 'info');
+  },
+
+  // CRUD Investimentos
+  salvarInvestimento() {
+    const nome = document.getElementById('modal-inv-nome').value;
+    const tipo = document.getElementById('modal-inv-tipo').value;
+    const jurisdicao = document.getElementById('modal-inv-juris').value;
+    const quantidade = parseFloat(document.getElementById('modal-inv-qtd').value);
+    const valor_unit = parseFloat(document.getElementById('modal-inv-unit').value);
+    const moeda = document.getElementById('modal-inv-moeda').value;
+
+    if (!nome || isNaN(quantidade) || isNaN(valor_unit)) { this.toast('Preencha todos os campos', 'error'); return; }
+
+    this.data.investimentos.push({
+      id: Date.now(), nome, tipo, jurisdicao, moeda, quantidade, valor_unit, total: quantidade * valor_unit
+    });
+    this.saveData();
+    this.closeModal();
+    this.renderInvestimentos();
+    this.toast('Investimento registrado', 'success');
+  },
+
+  excluirInvestimento(id) {
+    if (!confirm('Confirmar exclusão?')) return;
+    this.data.investimentos = this.data.investimentos.filter(i => i.id !== id);
+    this.saveData();
+    this.renderInvestimentos();
+    this.toast('Investimento removido', 'info');
+  },
+
+  // CRUD Afiliados
+  salvarAfiliado() {
+    const produto = document.getElementById('modal-aff-produto').value;
+    const plataforma = document.getElementById('modal-aff-plat').value;
+    const nicho = document.getElementById('modal-aff-nicho').value;
+    const comissao = document.getElementById('modal-aff-comissao').value;
+    const link = document.getElementById('modal-aff-link').value;
+
+    if (!produto) { this.toast('Nome do produto é obrigatório', 'error'); return; }
+
+    this.data.afiliados.push({
+      id: Date.now(), produto, plataforma, nicho, comissao, nota: 0, status: 'ativo', roteiro: false, link
+    });
+    this.saveData();
+    this.closeModal();
+    this.renderAfiliados();
+    this.toast('Produto cadastrado', 'success');
+  },
+
+  excluirAfiliado(id) {
+    if (!confirm('Confirmar exclusão?')) return;
+    this.data.afiliados = this.data.afiliados.filter(a => a.id !== id);
+    this.saveData();
+    this.renderAfiliados();
+    this.toast('Produto removido', 'info');
+  },
+
+  async gerarRoteiroAfiliado(id) {
+    const aff = this.data.afiliados.find(a => a.id === id);
+    if (!aff) return;
+
+    this.toast('Gerando roteiro com IA...', 'info');
+
+    try {
+      const prompt = `Crie um roteiro de vídeo curto (60 segundos) para promover o produto de afiliado "${aff.produto}" na plataforma ${aff.plataforma}, nicho ${aff.nicho}. Inclua: hook inicial, desenvolvimento, prova social e CTA. Formato: Instagram Reels/YouTube Shorts.`;
+      const roteiro = await this.callGemini(prompt, 'roteiro');
+
+      this.data.marketing.push({
+        id: Date.now(),
+        titulo: aff.produto + ' - Promoção',
+        plataforma: 'Instagram',
+        produto: aff.produto,
+        status: 'roteirizado',
+        data: new Date().toISOString(),
+        roteiro: roteiro
+      });
+
+      aff.roteiro = true;
+      this.saveData();
+      this.renderAfiliados();
+      this.renderMarketing();
+      this.toast('Roteiro gerado e salvo', 'success');
+    } catch (e) {
+      this.toast('Erro ao gerar roteiro: ' + e.message, 'error');
+    }
+  },
+
+  // Marketing / Roteiro
+  async gerarRoteiroModal() {
+    const titulo = document.getElementById('modal-rot-titulo').value;
+    const plataforma = document.getElementById('modal-rot-plat').value;
+    const produto = document.getElementById('modal-rot-produto').value;
+    const tema = document.getElementById('modal-rot-tema').value;
+
+    if (!titulo) { this.toast('Título é obrigatório', 'error'); return; }
+
+    this.toast('Gerando roteiro com IA...', 'info');
+
+    try {
+      const prompt = `Crie um roteiro de vídeo para ${plataforma} sobre: ${tema || titulo}. ${produto ? 'Promova o produto: ' + produto : ''} Inclua hook, desenvolvimento, prova social e CTA.`;
+      const roteiro = await this.callGemini(prompt, 'roteiro');
+
+      this.data.marketing.push({
+        id: Date.now(),
+        titulo,
+        plataforma,
+        produto: produto || '-',
+        status: 'roteirizado',
+        data: new Date().toISOString(),
+        roteiro
+      });
+
+      this.saveData();
+      this.closeModal();
+      this.renderMarketing();
+      this.toast('Roteiro gerado com sucesso', 'success');
+    } catch (e) {
+      this.toast('Erro: ' + e.message, 'error');
+    }
+  },
+
+  salvarRoteiro() {
+    const titulo = document.getElementById('modal-rot-titulo').value;
+    const plataforma = document.getElementById('modal-rot-plat').value;
+    const produto = document.getElementById('modal-rot-produto').value;
+
+    if (!titulo) { this.toast('Título é obrigatório', 'error'); return; }
+
+    this.data.marketing.push({
+      id: Date.now(), titulo, plataforma, produto: produto || '-', status: 'planejado', data: new Date().toISOString()
+    });
+    this.saveData();
+    this.closeModal();
+    this.renderMarketing();
+    this.toast('Roteiro salvo', 'success');
+  },
+
+  excluirMarketing(id) {
+    if (!confirm('Confirmar exclusão?')) return;
+    this.data.marketing = this.data.marketing.filter(m => m.id !== id);
+    this.saveData();
+    this.renderMarketing();
+    this.toast('Item removido', 'info');
+  },
+
+  // Configurações
+  salvarConfigGemini() {
+    const key = document.getElementById('config-gemini-key').value;
+    this.geminiKey = key;
+    localStorage.setItem('gemini_key', key);
+    this.toast('Chave Gemini salva', 'success');
+  },
+
+  salvarConfigSupabase() {
+    const url = document.getElementById('config-supabase-url').value;
+    const key = document.getElementById('config-supabase-key').value;
+    this.supabaseUrl = url;
+    this.supabaseKey = key;
+    localStorage.setItem('supabase_url', url);
+    localStorage.setItem('supabase_key', key);
+    this.toast('Configurações Supabase salvas', 'success');
+  },
+
+  // Exportar/Importar
+  exportarDados() {
+    const dataStr = JSON.stringify(this.data, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `olho-do-dono-backup-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    this.toast('Backup exportado', 'success');
+  },
+
+  importarDados() {
+    document.getElementById('import-file').click();
+  },
+
+  processarImportacao(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+        if (confirm('Isso substituirá todos os dados atuais. Continuar?')) {
+          this.data = data;
+          this.saveData();
+          this.renderAll();
+          this.toast('Dados importados com sucesso', 'success');
+        }
+      } catch (err) {
+        this.toast('Arquivo inválido', 'error');
+      }
+    };
+    reader.readAsText(file);
+  },
+
+  limparTodosDados() {
+    if (!confirm('ATENÇÃO: Isso apagará TODOS os dados. Esta ação não pode ser desfeita. Continuar?')) return;
+    this.data = { empresas: [], lancamentos: [], rh: [], investimentos: [], marketing: [], afiliados: [], conselho: [], copiloto: [], traducoes: [] };
+    this.saveData();
+    this.initMockData();
+    this.renderAll();
+    this.toast('Todos os dados foram resetados', 'info');
+  },
+
+  // Partículas (Jarvis background)
+  initParticles() {
+    const canvas = document.getElementById('particle-canvas');
+    const ctx = canvas.getContext('2d');
+    let particles = [];
+    let mouse = { x: null, y: null };
+
+    const resize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
+    resize();
+    window.addEventListener('resize', resize);
+
+    window.addEventListener('mousemove', (e) => {
+      mouse.x = e.clientX;
+      mouse.y = e.clientY;
+    });
+
+    class Particle {
+      constructor() {
+        this.x = Math.random() * canvas.width;
+        this.y = Math.random() * canvas.height;
+        this.vx = (Math.random() - 0.5) * 0.5;
+        this.vy = (Math.random() - 0.5) * 0.5;
+        this.size = Math.random() * 2 + 1;
+      }
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        if (this.x < 0 || this.x > canvas.width) this.vx *= -1;
+        if (this.y < 0 || this.y > canvas.height) this.vy *= -1;
+      }
+      draw() {
+        ctx.fillStyle = 'rgba(0, 212, 255, 0.5)';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    for (let i = 0; i < 80; i++) particles.push(new Particle());
+
+    const animate = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      particles.forEach((p, i) => {
+        p.update();
+        p.draw();
+
+        // Conexões
+        for (let j = i + 1; j < particles.length; j++) {
+          const dx = particles[j].x - p.x;
+          const dy = particles[j].y - p.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 150) {
+            ctx.strokeStyle = `rgba(0, 212, 255, ${0.1 * (1 - dist / 150)})`;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(particles[j].x, particles[j].y);
+            ctx.stroke();
+          }
+        }
+
+        // Mouse interaction
+        if (mouse.x && mouse.y) {
+          const dx = mouse.x - p.x;
+          const dy = mouse.y - p.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 200) {
+            ctx.strokeStyle = `rgba(0, 212, 255, ${0.15 * (1 - dist / 200)})`;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(mouse.x, mouse.y);
+            ctx.stroke();
+          }
+        }
+      });
+
+      requestAnimationFrame(animate);
+    };
+    animate();
+  },
+
+  // Render all
+  renderAll() {
+    this.renderEmpresas();
+    this.renderFinanceiro();
+    this.renderRH();
+    this.renderInvestimentos();
+    this.renderMarketing();
+    this.renderAfiliados();
+    this.renderConselho();
+    this.renderTraducoes();
+  },
+
+  // Utilitários
+  formatMoney(val) {
+    if (val === undefined || val === null) return 'R$ 0,00';
+    return 'R$ ' + val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  },
+
+  formatDate(dateStr) {
+    if (!dateStr) return '-';
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('pt-BR');
+  },
+
+  getStatusColor(status) {
+    const colors = {
+      'planejado': 'bg-jarvis-muted/10 text-jarvis-muted',
+      'roteirizado': 'bg-jarvis-cyan/10 text-jarvis-cyan',
+      'pronto_para_gravacao': 'bg-jarvis-warning/10 text-jarvis-warning',
+      'video_gerado': 'bg-jarvis-success/10 text-jarvis-success',
+      'aguardando_credenciais': 'bg-jarvis-danger/10 text-jarvis-danger',
+      'publicado': 'bg-jarvis-success/10 text-jarvis-success'
+    };
+    return colors[status] || 'bg-jarvis-muted/10 text-jarvis-muted';
+  },
+
+  formatStatus(status) {
+    const labels = {
+      'planejado': 'PLANEJADO',
+      'roteirizado': 'ROTEIRIZADO',
+      'pronto_para_gravacao': 'PRONTO P/ GRAVAÇÃO',
+      'video_gerado': 'VÍDEO GERADO',
+      'aguardando_credenciais': 'AGUARDANDO CREDENCIAIS',
+      'publicado': 'PUBLICADO'
+    };
+    return labels[status] || status.toUpperCase();
+  },
+
+  detectLang(text) {
+    // Detecção simplificada
+    if (/[àáâãäåæçèéêëìíîïðñòóôõöøùúûüýÿ]/.test(text)) return 'Português';
+    if (/[äöüß]/.test(text)) return 'Alemão';
+    if (/[áéíóúñ¿¡]/.test(text)) return 'Espanhol';
+    if (/[àâçéèêëïîôùûüÿ]/.test(text)) return 'Francês';
+    if (/[āēīōū]/.test(text)) return 'Japonês/Chinês';
+    if (/[ぁ-んァ-ン]/.test(text)) return 'Japonês';
+    return 'Inglês';
+  },
+
+  langName(code) {
+    const names = { pt: 'Português', en: 'Inglês', es: 'Espanhol', fr: 'Francês', de: 'Alemão', it: 'Italiano', ja: 'Japonês', zh: 'Chinês' };
+    return names[code] || code;
+  },
+
+  escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  },
+
+  sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  },
+
+  toast(message, type = 'info') {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+
+    const colors = {
+      success: 'border-jarvis-success',
+      error: 'border-jarvis-danger',
+      warning: 'border-jarvis-warning',
+      info: 'border-jarvis-cyan'
+    };
+
+    toast.style.borderColor = type === 'success' ? '#00ff88' : type === 'error' ? '#ff3366' : type === 'warning' ? '#ffaa00' : '#00d4ff';
+    toast.innerHTML = `<p class="text-sm">${message}</p>`;
+
+    container.appendChild(toast);
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateX(100%)';
+      setTimeout(() => toast.remove(), 300);
+    }, 4000);
+  }
+};
+
+// Inicializar quando DOM estiver pronto
+document.addEventListener('DOMContentLoaded', () => app.init());
+</script>
+</body>
 </html>
