@@ -1,223 +1,147 @@
 import React, { useState, useEffect } from 'react';
+import { createClient } from '@supabase/supabase-js';
 
-export default function AppSoberano() {
-  // Estado do Sistema e Telemetria
-  const [statusSistema, setStatusSistema] = useState('OPERACIONAL - BLINDADO');
-  const [comandoAtivo, setComandoAtivo] = useState('');
-  const [logs, setLogs] = useState([
-    { timestamp: '08:00:00', tipo: 'SEGURANÇA', msg: 'Perímetro varrido. Zero ameaças.' },
-    { timestamp: '08:00:02', tipo: 'FINANCEIRO', msg: 'Sincronização com Fundação e FIIs ativa.' },
-    { timestamp: '08:00:05', tipo: 'CORE', msg: 'Segundo cérebro indexado com sucesso.' }
-  ]);
+const supabaseUrl = 'https://enhouyxocieotynybmcl.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuaG91eXhvY2llb3R5bnlibWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcwMjY0NTYsImV4cCI6MjEwMjYwMjQ1Nn0.ypoEii9bdHmqpXdBoh87Xu2WAp8rSEpMtTWZyJk6bdM';
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-  // Executa comando estratégico
-  const enviarComando = (e) => {
-    e.preventDefault();
-    if (!comandoAtivo.trim()) return;
+const cores = { fundo: '#0A1220', card: '#0F1B2D', borda: '#232B36', destaque: '#B08159' };
 
-    const novoLog = {
-      timestamp: new Date().toLocaleTimeString(),
-      tipo: 'COMANDO_SOBERANO',
-      msg: `Executando: "${comandoAtivo}"`
-    };
+export default function App() {
+  const [session, setSession] = useState(null);
+  const [carregandoSessao, setCarregandoSessao] = useState(true);
 
-    setLogs([novoLog, ...logs]);
-    setComandoAtivo('');
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setCarregandoSessao(false);
+    });
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, novaSessao) => {
+      setSession(novaSessao);
+    });
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  if (carregandoSessao) {
+    return <div style={estiloTela}><p style={{ color: '#9ca3af' }}>Carregando...</p></div>;
+  }
+
+  return session ? <ConselhoIA session={session} /> : <TelaLogin />;
+}
+
+const estiloTela = { padding: '20px', background: cores.fundo, color: '#fff', minHeight: '100vh', fontFamily: 'sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center' };
+
+function TelaLogin() {
+  const [modo, setModo] = useState('entrar');
+  const [email, setEmail] = useState('');
+  const [senha, setSenha] = useState('');
+  const [mensagem, setMensagem] = useState('');
+  const [carregando, setCarregando] = useState(false);
+
+  const enviar = async () => {
+    if (!email.trim() || !senha.trim()) { setMensagem('Preencha email e senha.'); return; }
+    setCarregando(true);
+    setMensagem('');
+    try {
+      if (modo === 'entrar') {
+        const { error } = await supabase.auth.signInWithPassword({ email, password: senha });
+        if (error) setMensagem(`Erro: ${error.message}`);
+      } else {
+        const { error } = await supabase.auth.signUp({ email, password: senha });
+        if (error) setMensagem(`Erro: ${error.message}`);
+        else setMensagem('Conta criada! Se a confirmação por email estiver ativa, verifique sua caixa de entrada antes de entrar.');
+      }
+    } catch (e) {
+      setMensagem('Erro de conexão ao autenticar.');
+    } finally {
+      setCarregando(false);
+    }
   };
 
   return (
-    <div style={estilos.container}>
-      {/* Cabeçalho de Status Executivo */}
-      <header style={estilos.header}>
-        <div>
-          <h1 style={estilos.titulo}>OLHO DO DONO</h1>
-          <p style={estilos.subtitulo}>SISTEMA DE COMANDO SOBEREANO - CICLO FECHADO</p>
-        </div>
-        <div style={estilos.badgeStatus}>
-          <span style={estilos.pontoVerde}></span>
-          {statusSistema}
-        </div>
-      </header>
-
-      {/* Grid Principal do Painel */}
-      <div style={estilos.gridPrincipal}>
-        
-        {/* Coluna Esquerda: Painel de Controle e Comandos */}
-        <section style={estilos.card}>
-          <h3 style={estilos.cardTitulo}>Painel de Controle Central</h3>
-          <form onSubmit={enviarComando} style={estilos.form}>
-            <textarea
-              value={comandoAtivo}
-              onChange={(e) => setComandoAtivo(e.target.value)}
-              placeholder="Digite a diretriz ou comando para o núcleo..."
-              rows={3}
-              style={estilos.textarea}
-            />
-            <button type="submit" style={estilos.botao}>
-              EXECUTAR DIRETRIZ
-            </button>
-          </form>
-
-          <div style={estilos.blocoFinanceiro}>
-            <h4 style={{ color: '#00ffcc', margin: '0 0 10px 0', fontSize: '14px' }}>ESTADO PATRIMONIAL & CAIXA</h4>
-            <p style={estilos.textoInfo}>Holding: <strong>Protegida & Estanque</strong></p>
-            <p style={estilos.textoInfo}>Fundação (Tesouro/FIIs): <strong>Automação Ativa</strong></p>
-            <p style={estilos.textoInfo}>Compliance / Auditoria: <strong>Porta Isolada Pronta</strong></p>
-          </div>
-        </section>
-
-        {/* Coluna Direita: Logs de Missão e Telemetria em Tempo Real */}
-        <section style={estilos.card}>
-          <h3 style={estilos.cardTitulo}>Telemetria & Logs do Sistema (Self-Healing)</h3>
-          <div style={estilos.containerLogs}>
-            {logs.map((log, index) => (
-              <div key={index} style={estilos.logItem}>
-                <span style={estilos.logTimestamp}>[{log.timestamp}]</span>
-                <span style={estilos.logTipo}>({log.tipo})</span>
-                <span style={estilos.logMsg}>{log.msg}</span>
-              </div>
-            ))}
-          </div>
-        </section>
-
+    <div style={estiloTela}>
+      <div style={{ maxWidth: '400px', width: '100%', background: cores.card, padding: '24px', borderRadius: '8px', border: `1px solid ${cores.borda}` }}>
+        <h2 style={{ color: cores.destaque, marginBottom: '4px' }}>O Olho do Dono</h2>
+        <p style={{ fontSize: '13px', color: '#9ca3af', marginBottom: '20px' }}>
+          {modo === 'entrar' ? 'Entre com sua conta para acessar o painel.' : 'Crie sua conta de acesso.'}
+        </p>
+        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="seu@email.com" style={estiloInput} />
+        <input type="password" value={senha} onChange={(e) => setSenha(e.target.value)} placeholder="Senha" style={estiloInput} />
+        <button onClick={enviar} disabled={carregando} style={estiloBotao}>
+          {carregando ? 'Aguarde...' : modo === 'entrar' ? 'Entrar' : 'Criar conta'}
+        </button>
+        {mensagem && <p style={{ fontSize: '13px', color: '#e5e7eb', marginTop: '12px', whiteSpace: 'pre-wrap' }}>{mensagem}</p>}
+        <button onClick={() => { setModo(modo === 'entrar' ? 'criar' : 'entrar'); setMensagem(''); }} style={{ background: 'none', border: 'none', color: cores.destaque, fontSize: '13px', marginTop: '16px', cursor: 'pointer', textDecoration: 'underline' }}>
+          {modo === 'entrar' ? 'Não tem conta? Criar uma' : 'Já tem conta? Entrar'}
+        </button>
       </div>
     </div>
   );
 }
 
-// Design System de Alta Performance (Dark Mode Executivo Militar)
-const estilos = {
-  container: {
-    backgroundColor: '#05070b',
-    color: '#e2e8f0',
-    minHeight: '100vh',
-    padding: '24px',
-    fontFamily: 'Inter, system-ui, sans-serif',
-  },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderBottom: '1px solid #1e293b',
-    paddingBottom: '20px',
-    marginBottom: '24px',
-  },
-  titulo: {
-    fontSize: '22px',
-    fontWeight: '800',
-    letterSpacing: '2px',
-    color: '#ffffff',
-    margin: 0,
-  },
-  subtitulo: {
-    fontSize: '11px',
-    color: '#64748b',
-    letterSpacing: '1px',
-    margin: '4px 0 0 0',
-  },
-  badgeStatus: {
-    display: 'flex',
-    alignItems: 'center',
-    backgroundColor: '#0f172a',
-    border: '1px solid #334155',
-    padding: '8px 14px',
-    borderRadius: '4px',
-    fontSize: '12px',
-    fontWeight: '600',
-    color: '#10b981',
-  },
-  pontoVerde: {
-    width: '8px',
-    height: '8px',
-    backgroundColor: '#10b981',
-    borderRadius: '50%',
-    display: 'inline-block',
-    marginRight: '8px',
-    boxShadow: '0 0 8px #10b981',
-  },
-  gridPrincipal: {
-    display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gap: '24px',
-  },
-  card: {
-    backgroundColor: '#0b0f19',
-    border: '1px solid #1e293b',
-    borderRadius: '8px',
-    padding: '20px',
-  },
-  cardTitulo: {
-    fontSize: '15px',
-    fontWeight: '700',
-    color: '#f8fafc',
-    marginTop: 0,
-    marginBottom: '16px',
-    borderBottom: '1px solid #1e293b',
-    paddingBottom: '8px',
-  },
-  form: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '12px',
-    marginBottom: '20px',
-  },
-  textarea: {
-    backgroundColor: '#020617',
-    border: '1px solid #334155',
-    borderRadius: '4px',
-    color: '#f8fafc',
-    padding: '12px',
-    fontSize: '14px',
-    resize: 'vertical',
-    outline: 'none',
-  },
-  botao: {
-    backgroundColor: '#00ffcc',
-    color: '#020617',
-    border: 'none',
-    borderRadius: '4px',
-    padding: '12px',
-    fontWeight: '800',
-    fontSize: '13px',
-    cursor: 'pointer',
-    letterSpacing: '1px',
-    transition: 'background 0.2s',
-  },
-  blocoFinanceiro: {
-    backgroundColor: '#020617',
-    border: '1px solid #1e293b',
-    borderRadius: '6px',
-    padding: '14px',
-  },
-  textoInfo: {
-    fontSize: '13px',
-    color: '#94a3b8',
-    margin: '6px 0',
-  },
-  containerLogs: {
-    backgroundColor: '#020617',
-    border: '1px solid #1e293b',
-    borderRadius: '6px',
-    padding: '12px',
-    height: '220px',
-    overflowY: 'auto',
-    fontFamily: 'monospace',
-    fontSize: '12px',
-  },
-  logItem: {
-    marginBottom: '8px',
-    borderBottom: '1px dashed #1e293b',
-    paddingBottom: '4px',
-  },
-  logTimestamp: {
-    color: '#64748b',
-    marginRight: '6px',
-  },
-  logTipo: {
-    color: '#38bdf8',
-    marginRight: '6px',
-  },
-  logMsg: {
-    color: '#e2e8f0',
-  },
-};
+const estiloInput = { width: '100%', padding: '12px', background: '#0b0f19', color: '#fff', border: `1px solid ${cores.borda}`, borderRadius: '6px', marginBottom: '12px', boxSizing: 'border-box' };
+const estiloBotao = { width: '100%', padding: '12px', background: cores.destaque, color: '#0b0f19', fontWeight: 'bold', border: 'none', borderRadius: '6px', cursor: 'pointer' };
+
+function ConselhoIA({ session }) {
+  const [empresas, setEmpresas] = useState([]);
+  const [empresaId, setEmpresaId] = useState('');
+  const [pauta, setPauta] = useState('');
+  const [parecer, setParecer] = useState('');
+  const [carregando, setCarregando] = useState(false);
+
+  useEffect(() => {
+    supabase.from('companies').select('id, name').then(({ data, error }) => {
+      if (!error && data) {
+        setEmpresas(data);
+        if (data.length > 0) setEmpresaId(data[0].id);
+      }
+    });
+  }, []);
+
+  const sair = async () => { await supabase.auth.signOut(); };
+
+  const consultarConselho = async () => {
+    if (!pauta.trim()) return;
+    if (!empresaId) { setParecer('Selecione uma empresa antes de consultar.'); return; }
+    setCarregando(true);
+    setParecer('Consultando os conselheiros executivos...');
+    try {
+      const response = await fetch('https://enhouyxocieotynybmcl.supabase.co/functions/v1/cohi-conselho', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+        body: JSON.stringify({ pauta, company_id: empresaId }),
+      });
+      const data = await response.json();
+      if (response.ok) setParecer(data.decisao_recomendada || data.status || JSON.stringify(data, null, 2));
+      else setParecer(`[Erro do Servidor]: ${data.mensagem || data.error || 'Erro ao processar pauta.'}`);
+    } catch (error) {
+      setParecer('[Erro de Conexão]: Não foi possível conectar à Edge Function.');
+    } finally {
+      setCarregando(false);
+    }
+  };
+
+  return (
+    <div style={{ padding: '20px', background: cores.fundo, color: '#fff', minHeight: '100vh', fontFamily: 'sans-serif' }}>
+      <div style={{ maxWidth: '600px', margin: '0 auto', background: cores.card, padding: '20px', borderRadius: '8px', border: `1px solid ${cores.borda}` }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+          <h2 style={{ color: cores.destaque, margin: 0 }}>Deliberação do Conselho (6 Conselheiros)</h2>
+          <button onClick={sair} style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: '13px', cursor: 'pointer', textDecoration: 'underline' }}>Sair</button>
+        </div>
+        <p style={{ fontSize: '14px', color: '#9ca3af', marginBottom: '15px' }}>Envie sua pauta estratégica para análise executiva.</p>
+        <select value={empresaId} onChange={(e) => setEmpresaId(e.target.value)} style={{ ...estiloInput, marginBottom: '15px' }}>
+          {empresas.length === 0 && <option value="">Nenhuma empresa disponível</option>}
+          {empresas.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
+        <textarea value={pauta} onChange={(e) => setPauta(e.target.value)} placeholder="Digite sua pauta estratégica aqui..." rows={4} style={{ ...estiloInput, resize: 'vertical' }} />
+        <button onClick={consultarConselho} disabled={carregando} style={{ ...estiloBotao, marginBottom: '20px' }}>
+          {carregando ? 'Analisando...' : 'Consultar Conselho de IA'}
+        </button>
+        <div style={{ background: '#0b0f19', padding: '15px', borderRadius: '6px', border: `1px solid ${cores.borda}` }}>
+          <strong style={{ color: cores.destaque, display: 'block', marginBottom: '8px' }}>PARECER EXECUTIVO:</strong>
+          <div style={{ whiteSpace: 'pre-wrap', fontSize: '14px', color: '#e5e7eb' }}>{parecer || 'Aguardando envio de pauta para deliberação...'}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
