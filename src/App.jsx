@@ -57,6 +57,7 @@ export default function AppSoberano() {
     event.preventDefault();
 
     const texto = comando.trim();
+
     if (!texto) {
       setMensagem("Digite uma diretriz antes de transmitir.");
       return;
@@ -87,10 +88,12 @@ export default function AppSoberano() {
       <header style={styles.topBar}>
         <div style={styles.brandArea}>
           <div style={styles.pulseIcon} />
+
           <div>
             <h1 style={styles.mainTitle}>
               OLHO DO DONO
             </h1>
+
             <div style={styles.subTitle}>
               TORRE DE COMANDO // PROJETO_RAIZ
             </div>
@@ -109,9 +112,11 @@ export default function AppSoberano() {
             <div style={styles.eyebrow}>
               CENTRAL DE CONTROLE DO FUNDADOR
             </div>
+
             <h2 style={styles.heroTitle}>
               Visão geral do sistema
             </h2>
+
             <p style={styles.heroText}>
               Interface de acompanhamento e registro de
               diretrizes do PROJETO_RAIZ.
@@ -126,11 +131,15 @@ export default function AppSoberano() {
 
         <section style={styles.metricsGrid}>
           {feeds.slice(0, 4).map((item) => (
-            <article key={item.id} style={styles.metricCard}>
+            <article
+              key={item.id}
+              style={styles.metricCard}
+            >
               <div style={styles.cardHeader}>
                 <span style={styles.cardSetor}>
                   {item.setor}
                 </span>
+
                 <span
                   style={{
                     ...styles.statusDot,
@@ -157,7 +166,11 @@ export default function AppSoberano() {
 
         <nav style={styles.tabBar}>
           <button
-            onClick={() => setAbaAtiva("comando")}
+            type="button"
+            onClick={() => {
+              setAbaAtiva("comando");
+              setMensagem("");
+            }}
             style={{
               ...styles.tab,
               ...(abaAtiva === "comando"
@@ -169,7 +182,11 @@ export default function AppSoberano() {
           </button>
 
           <button
-            onClick={() => setAbaAtiva("eventos")}
+            type="button"
+            onClick={() => {
+              setAbaAtiva("eventos");
+              setMensagem("");
+            }}
             style={{
               ...styles.tab,
               ...(abaAtiva === "eventos"
@@ -186,10 +203,12 @@ export default function AppSoberano() {
             <article style={styles.panel}>
               <div style={styles.panelHeading}>
                 <span style={styles.panelIcon}>⚡</span>
+
                 <div>
                   <h3 style={styles.sectionTitle}>
                     DIRETRIZ EXECUTIVA
                   </h3>
+
                   <p style={styles.sectionDesc}>
                     Registre uma instrução no histórico local.
                   </p>
@@ -223,7 +242,10 @@ export default function AppSoberano() {
                 </button>
 
                 {mensagem && (
-                  <div style={styles.message}>
+                  <div
+                    role="status"
+                    style={styles.message}
+                  >
                     {mensagem}
                   </div>
                 )}
@@ -244,16 +266,21 @@ export default function AppSoberano() {
               <h3 style={styles.sectionTitle}>
                 HISTÓRICO DE EVENTOS
               </h3>
+
               <p style={styles.sectionDesc}>
                 Registros disponíveis nesta sessão.
               </p>
 
               <div style={styles.logContainer}>
                 {feeds.map((item) => (
-                  <div key={item.id} style={styles.logRow}>
+                  <div
+                    key={item.id}
+                    style={styles.logRow}
+                  >
                     <span style={styles.logTime}>
                       [{item.hora}]
                     </span>
+
                     <span
                       style={{
                         color: item.cor,
@@ -262,6 +289,7 @@ export default function AppSoberano() {
                     >
                       {item.setor}:
                     </span>
+
                     <span style={styles.logText}>
                       {item.status}
                     </span>
@@ -270,11 +298,21 @@ export default function AppSoberano() {
               </div>
 
               <button
+                type="button"
                 onClick={limparHistorico}
                 style={styles.secondaryButton}
               >
                 RESTAURAR HISTÓRICO INICIAL
               </button>
+
+              {mensagem && (
+                <div
+                  role="status"
+                  style={styles.message}
+                >
+                  {mensagem}
+                </div>
+              )}
             </article>
           )}
         </section>
@@ -603,6 +641,7 @@ const styles = {
     padding: "14px",
     maxHeight: "420px",
     overflowY: "auto",
+    marginTop: "18px",
   },
 
   logRow: {
